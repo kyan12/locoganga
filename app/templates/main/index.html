@@ -6,16 +6,16 @@
     <!-- Header -->
     <header class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold">Store</h1>
-        <div class="relative">
-            <button 
-                @click="fetch('/cart').then(r => r.json()).then(data => cart = data.items)"
-                class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
-                Cart
-                <span x-text="cart.length" 
-                      class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
-                </span>
-            </button>
-        </div>
+        <!-- Replace the cart button in index.html -->
+<div class="relative">
+    <a href="/cart" 
+       class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition inline-block">
+        Cart
+        <span x-text="cart.length" 
+              class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+        </span>
+    </a>
+</div>
     </header>
 
     {% if error %}
@@ -72,22 +72,24 @@
 
             <!-- Add to Cart Button -->
             {% if product.SKUList and product.totalInventory > 0 %}
-                <button 
-                    @click="fetch('/cart/add', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            sku: '{{ product.SKUList[0].SKU }}',
-                            spu: '{{ product.SPU }}',
-                            title: '{{ product.title }}'
-                        })
-                    }).then(() => cart.push({
-                        sku: '{{ product.SKUList[0].SKU }}',
-                        quantity: 1
-                    }))"
-                    class="w-full bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 transition text-sm">
-                    Add to Cart
-                </button>
+            <button 
+            @click="fetch('/cart/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    sku: '{{ product.SKUList[0].SKU }}',
+                    spu: '{{ product.SPU }}',
+                    title: '{{ product.title }}',
+                    price: {{ product.SKUList[0].supplyPrice }},
+                    thumbnail: '{{ product.thumbnail }}'
+                })
+            }).then(() => cart.push({
+                sku: '{{ product.SKUList[0].SKU }}',
+                quantity: 1
+            }))"
+            class="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+            Add to Cart
+        </button>
             {% else %}
                 <button 
                     disabled

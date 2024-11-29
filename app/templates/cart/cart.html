@@ -1,0 +1,95 @@
+<!-- templates/cart/cart.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold">Shopping Cart</h1>
+        <a href="/" class="text-blue-500 hover:text-blue-600">Continue Shopping</a>
+    </div>
+
+    {% if cart_items %}
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b">
+                        <th class="text-left py-4">Product</th>
+                        <th class="text-center py-4">Quantity</th>
+                        <th class="text-right py-4">Price</th>
+                        <th class="text-right py-4">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart_items %}
+                    <tr class="border-b">
+                        <td class="py-4">
+                            <div class="flex items-center">
+                                {% if item.thumbnail %}
+                                <img src="{{ item.thumbnail }}" 
+                                     alt="{{ item.title }}" 
+                                     class="w-16 h-16 object-cover rounded"
+                                     onerror="this.src='https://via.placeholder.com/64'">
+                                {% endif %}
+                                <div class="ml-4">
+                                    <h3 class="font-semibold">{{ item.title }}</h3>
+                                    <p class="text-gray-600 text-sm">SKU: {{ item.sku }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-4">
+                            <div class="flex justify-center items-center">
+                                <button class="text-gray-500 hover:text-blue-500 px-2"
+                                        onclick="updateQuantity('{{ item.sku }}', -1)">-</button>
+                                <span class="mx-2">{{ item.quantity }}</span>
+                                <button class="text-gray-500 hover:text-blue-500 px-2"
+                                        onclick="updateQuantity('{{ item.sku }}', 1)">+</button>
+                            </div>
+                        </td>
+                        <td class="text-right py-4">
+                            ${{ "%.2f"|format(item.price) }}
+                        </td>
+                        <td class="text-right py-4">
+                            ${{ "%.2f"|format(item.price * item.quantity) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-right py-4 font-semibold">Subtotal:</td>
+                        <td class="text-right py-4 font-semibold">${{ "%.2f"|format(total) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="mt-8 flex justify-end">
+                <button 
+                    onclick="alert('Checkout functionality coming soon!')"
+                    class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition">
+                    Proceed to Checkout
+                </button>
+            </div>
+        </div>
+    {% else %}
+        <div class="bg-white rounded-lg shadow-md p-6 text-center">
+            <p class="text-gray-600 mb-4">Your cart is empty</p>
+            <a href="/" class="text-blue-500 hover:text-blue-600">Start Shopping</a>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function updateQuantity(sku, change) {
+    fetch('/cart/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            sku: sku,
+            change: change
+        })
+    }).then(() => window.location.reload());
+}
+</script>
+{% endblock %}

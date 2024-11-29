@@ -122,3 +122,4 @@ def index():
     return render_template('main/index.html', 
                          products=page_products,
                          pagination={'page': requested_page, 'total_pages': total_pages})
+
