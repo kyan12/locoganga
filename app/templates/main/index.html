@@ -9,7 +9,7 @@
         <div class="relative">
             <button 
                 @click="fetch('/cart').then(r => r.json()).then(data => cart = data.items)"
-                class="bg-blue-500 text-white px-4 py-2 rounded-lg">
+                class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
                 Cart
                 <span x-text="cart.length" 
                       class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
@@ -24,52 +24,97 @@
     </div>
     {% endif %}
 
-    <!-- Products Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {% for product in products %}
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            {% if product.imgList %}
-            <img src="{{ product.imgList[0] }}" alt="{{ product.title }}" 
-                 class="w-full h-48 object-cover">
-            {% endif %}
-            <div class="p-4">
-                <h2 class="text-xl font-semibold mb-2">{{ product.title }}</h2>
-                <div class="mb-4">
-                    <p class="text-gray-600">Available: {{ product.totalInventory }}</p>
-                    {% if product.SKUList %}
-                    <p class="text-lg font-bold text-blue-600">
-                        {{ product.SKUList[0].supplyPrice }} {{ product.SKUList[0].retailPriceCode }}
-                    </p>
-                    {% endif %}
-                </div>
+   <!-- Products Grid -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+    {% for product in products %}
+    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+        <!-- Product Image -->
+        <div class="relative pt-[100%]">  <!-- This creates a square aspect ratio -->
+            <img src="{{ product.thumbnail }}" 
+                 alt="{{ product.title }}" 
+                 class="absolute top-0 left-0 w-full h-full object-cover"
+                 onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
+            
+            <!-- Stock Status Badge -->
+            <div class="absolute top-2 right-2">
+                {% if product.totalInventory > 20 %}
+                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">In Stock</span>
+                {% elif product.totalInventory > 0 %}
+                    <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Low Stock</span>
+                {% else %}
+                    <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Out of Stock</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="p-3">  <!-- Reduced padding for tighter layout -->
+            <!-- Title -->
+            <h2 class="text-sm font-semibold mb-2 line-clamp-2 h-10" title="{{ product.title }}">
+                {{ product.title }}
+            </h2>
+
+            <!-- Product Details -->
+            <div class="space-y-1 mb-3">  <!-- Reduced spacing -->
                 {% if product.SKUList %}
+                    {% set sku = product.SKUList[0] %}
+                    <!-- Price -->
+                    <div class="text-lg font-bold text-blue-600">
+                        ${{ "%.2f"|format(sku.supplyPrice) }}
+                    </div>
+                    
+                    <!-- Product Specs -->
+                    <div class="text-xs text-gray-600">
+                        <p>Weight: {{ sku.weight }}kg</p>
+                        <p>{{ sku.length }}x{{ sku.width }}x{{ sku.height }}cm</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Add to Cart Button -->
+            {% if product.SKUList and product.totalInventory > 0 %}
                 <button 
                     @click="fetch('/cart/add', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({sku: '{{ product.SKUList[0].SKU }}'})
-                    }).then(() => cart.push({sku: '{{ product.SKUList[0].SKU }}', quantity: 1}))"
-                    class="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+                        body: JSON.stringify({
+                            sku: '{{ product.SKUList[0].SKU }}',
+                            spu: '{{ product.SPU }}',
+                            title: '{{ product.title }}'
+                        })
+                    }).then(() => cart.push({
+                        sku: '{{ product.SKUList[0].SKU }}',
+                        quantity: 1
+                    }))"
+                    class="w-full bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 transition text-sm">
                     Add to Cart
                 </button>
-                {% endif %}
-            </div>
+            {% else %}
+                <button 
+                    disabled
+                    class="w-full bg-gray-300 text-gray-500 px-3 py-1.5 rounded cursor-not-allowed text-sm">
+                    Out of Stock
+                </button>
+            {% endif %}
         </div>
-        {% endfor %}
     </div>
-
+    {% endfor %}
+</div>
     <!-- Pagination -->
     <div class="mt-8 flex justify-center space-x-4">
         {% if pagination.page > 1 %}
         <a href="?page={{ pagination.page - 1 }}" 
-           class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+           class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
             Previous
         </a>
         {% endif %}
         
+        <span class="px-4 py-2 text-gray-700">
+            Page {{ pagination.page }} of {{ pagination.total_pages }}
+        </span>
+        
         {% if pagination.page < pagination.total_pages %}
         <a href="?page={{ pagination.page + 1 }}" 
-           class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+           class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
             Next
         </a>
         {% endif %}

@@ -26,5 +26,5 @@ class Config(object):
         'base_url': 'https://openapi.wanyilian.com/cedpopenapi/service',
         'app_key': os.environ.get('WANYILIAN_APP_KEY', 'your_app_key'),
         'token': os.environ.get('WANYILIAN_TOKEN', 'your_token'),
-        'platform': 'SELLERERP'
+        'platform': 'OWNERERP'
     }
