@@ -1,0 +1,70 @@
+Project Requirements
+Core Features
+Product Inventory & Catalog
+
+Integration with Warehouse API:
+Fetch product lists, categories, and sale types.
+Pull detailed product info (via SPU/SKU) and inventory data.
+Retrieve warehouse and delivery method details for shipping calculations.
+Data Storage:
+Store or cache product data in MySQL for quick access and to reduce API calls.
+Product Listing & Shopping Cart
+
+Frontend:
+Build a responsive UI using Tailwind CSS.
+Display product catalog with category filters and search.
+Allow users to view product details and add items to a shopping cart.
+Shopping Cart:
+Implement add, update, and remove functionalities.
+Show real-time inventory status pulled from the warehouse API.
+Checkout & Payment
+
+Checkout Flow:
+Collect customer shipping information (name, address, phone, email, etc.).
+Allow users to select a delivery method (using the warehouse API’s delivery methods).
+Stripe Integration:
+Integrate Stripe to handle secure payments.
+Process payments and handle success/failure scenarios.
+Implement Stripe webhooks for asynchronous payment status updates.
+Order Confirmation:
+After payment confirmation, create an outbound order via the warehouse API (using the “Create Outbound Order” endpoint).
+Display order confirmation and estimated shipping cost to the customer.
+Order Fulfillment & Tracking
+
+Order Management:
+Provide interfaces to view order history and details.
+Allow cancellation or manual push of orders when needed (using respective warehouse API endpoints).
+Status Updates:
+Regularly query the warehouse API for order status updates.
+Display tracking information and estimated delivery times.
+Backend & Database
+Framework:
+Use Python Flask to build RESTful APIs.
+Database:
+Use MySQL for storing user data, orders, and cached product information.
+Integration:
+Create service modules to interact with:
+The Warehouse API (handle signature generation, error handling, etc.).
+Stripe (handle payments, webhooks, and transactions).
+Security:
+Implement secure communication (HTTPS).
+Ensure proper error handling, logging, and data validation.
+User Interface & Experience
+Frontend Framework:
+Use Tailwind CSS for a modern, responsive design.
+Pages/Components:
+Home/Product Catalog: List products with filtering and search.
+Product Detail: Show detailed information, pricing, and inventory.
+Shopping Cart: Allow modifications and display subtotal.
+Checkout: Collect shipping details and show payment options.
+Order Confirmation & Tracking: Display order details and status updates.
+User Authentication (if needed):
+Allow users to create accounts, track orders, and save shipping info.
+Additional Considerations
+Modular Architecture:
+Build the system in a modular way to support future integrations (e.g., additional payment providers or additional warehouse APIs).
+Testing & Monitoring:
+Implement unit and integration tests.
+Monitor API interactions and payment processing for issues.
+Documentation:
+Maintain clear documentation for internal APIs, the integration process, and any custom business logic.

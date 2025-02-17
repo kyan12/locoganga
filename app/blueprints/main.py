@@ -1,8 +1,11 @@
 from flask import Blueprint, render_template, current_app, request
 import requests
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
+from ..services.product_service import ProductService
+from ..services.winit_api import WinitAPI
+from ..models import Product, ProductSKU, db
 
 bp = Blueprint('main', __name__)
 
@@ -40,86 +43,110 @@ def generate_sign(params):
     # Generate MD5 hash and convert to uppercase
     return hashlib.md5(sign_string.encode('utf-8')).hexdigest().upper()
 
-@bp.route('/')
-def index():
-    requested_page = request.args.get('page', 1, type=int)
-    items_per_page = 20  # 5 columns × 4 rows
-    in_stock_products = []
-    current_api_page = 1
-    total_in_stock_count = 0
-    first_page = True
+def sync_products(winit_api, force=False):
+    """
+    Sync products from Winit to local database
+    Returns the number of products synced
+    """
+    try:
+        # Check if we need to sync
+        last_product = Product.query.order_by(Product.updated_at.desc()).first()
+        if not force and last_product and last_product.updated_at > datetime.utcnow() - timedelta(hours=1):
+            return 0  # Skip if last sync was less than 1 hour ago
 
-    while len(in_stock_products) < (requested_page * items_per_page):
-        params = {
-            'action': 'wanyilian.supplier.spu.getProductBaseList',
-            'app_key': current_app.config['API_CONFIG']['app_key'],
-            'data': {
-                'pageParams': {
-                    'pageNo': current_api_page,
-                    'pageSize': 50,  # Request more items per API call to reduce number of calls
-                    'totalCount': 0
-                },
-                'warehouseCode': 'UKGF'
-            },
-            'format': 'json',
-            'language': 'zh_CN',
-            'platform': current_app.config['API_CONFIG']['platform'],
-            'sign_method': 'md5',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'version': '1.0'
-        }
-
-        params['sign'] = generate_sign(params)
-        
-        try:
-            response = requests.post(current_app.config['API_CONFIG']['base_url'], json=params)
-            response_data = response.json()
+        # Get products from Winit
+        page = 1
+        total_synced = 0
+        while True:
+            response = winit_api.get_product_list(page=page, page_size=100)
+            products = response.get('list', [])
             
-            if response_data.get('code') != '0':
-                error_message = f"API Error: {response_data.get('msg')} (Code: {response_data.get('code')})"
-                return render_template('main/index.html', 
-                                     products=[], 
-                                     error=error_message,
-                                     pagination={'page': requested_page, 'total_pages': 1})
-
-            # Get products from response
-            new_products = response_data.get('data', {}).get('SPUList', [])
-            
-            # If no more products, break
-            if not new_products:
+            if not products:
                 break
 
-            # Filter and add in-stock products
-            in_stock_products.extend([
-                product for product in new_products
-                if product.get('totalInventory', 0) > 0
-            ])
+            for product_data in products:
+                # Get or create product
+                product = Product.query.filter_by(spu=product_data['spu']).first()
+                if not product:
+                    product = Product(spu=product_data['spu'])
+                
+                # Update product details
+                product.title = product_data.get('title', '')
+                product.description = product_data.get('description', '')
+                product.category_id = product_data.get('categoryId')
+                product.sale_type_id = product_data.get('saleTypeId')
+                product.warehouse_code = product_data.get('warehouseCode')
+                product.thumbnail = product_data.get('thumbnail')
+                product.total_inventory = product_data.get('totalInventory', 0)
+                product.updated_at = datetime.utcnow()
 
-            # On first page, estimate total in-stock items for pagination
-            if first_page:
-                total_api_count = response_data.get('data', {}).get('pageParams', {}).get('totalCount', 0)
-                in_stock_ratio = len([p for p in new_products if p.get('totalInventory', 0) > 0]) / len(new_products)
-                total_in_stock_count = int(total_api_count * in_stock_ratio)
-                first_page = False
+                # Get detailed product info including SKUs
+                detail = winit_api.get_product_detail(product.spu)
+                if detail and 'skuList' in detail:
+                    # Clear existing SKUs
+                    ProductSKU.query.filter_by(product_id=product.id).delete()
+                    
+                    # Add new SKUs
+                    for sku_data in detail['skuList']:
+                        sku = ProductSKU(
+                            product=product,
+                            sku=sku_data['sku'],
+                            title=sku_data.get('title', ''),
+                            image=sku_data.get('image'),
+                            price=float(sku_data.get('price', 0)),
+                            settle_price=float(sku_data.get('settlePrice', 0)),
+                            inventory=int(sku_data.get('inventory', 0))
+                        )
+                        db.session.add(sku)
 
-            current_api_page += 1
+                db.session.add(product)
+                total_synced += 1
 
-        except Exception as e:
-            current_app.logger.error(f"Error fetching products: {e}")
-            return render_template('main/index.html', 
-                                 products=[], 
-                                 error=str(e),
-                                 pagination={'page': requested_page, 'total_pages': 1})
+            page += 1
+            
+        db.session.commit()
+        current_app.logger.info(f"Successfully synced {total_synced} products from Winit")
+        return total_synced
 
-    # Calculate total pages based on estimated total in-stock items
-    total_pages = (total_in_stock_count + items_per_page - 1) // items_per_page
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error syncing products from Winit: {str(e)}")
+        raise
 
-    # Get the slice of products for the requested page
-    start_idx = (requested_page - 1) * items_per_page
-    end_idx = start_idx + items_per_page
-    page_products = in_stock_products[start_idx:end_idx]
+@bp.route('/')
+@bp.route('/index')
+def index():
+    """Home page"""
+    print('home')
+    # Initialize services
+    winit_api = WinitAPI.from_app(current_app)
+    product_service = ProductService(winit_api)
 
-    return render_template('main/index.html', 
-                         products=page_products,
-                         pagination={'page': requested_page, 'total_pages': total_pages})
+    try:
+        # Sync products from Winit
+        sync_products(winit_api)
+        
+        # Get featured products from our database
+        featured_products = Product.query.filter(
+            Product.total_inventory > 0
+        ).order_by(
+            Product.updated_at.desc()
+        ).limit(8).all()
+        
+        return render_template('main/index.html', products=featured_products)
+
+    except Exception as e:
+        current_app.logger.error(f"Error in index route: {str(e)}")
+        # If sync fails, try to get products from database anyway
+        featured_products = Product.query.filter(
+            Product.total_inventory > 0
+        ).order_by(
+            Product.updated_at.desc()
+        ).limit(8).all()
+        return render_template('main/index.html', products=featured_products)
+
+@bp.route('/about')
+def about():
+    """About page"""
+    return render_template('main/about.html')
 

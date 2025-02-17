@@ -1,0 +1,1242 @@
+目录
+一、基础参数	2
+二、签名拼接方法	2
+三、 创建发货单	3
+四、 取消发货单	9
+五、 推送发货单	12
+六、 查询发货单（列表）	15
+七、 查询发货单	22
+八、 查询派送方式	30
+九、 查询分销商品（单个）	32
+十、 查询仓库代码	44
+十一、 获取商品分类	47
+十二、 获取商品销售类型	49
+十三、 查询分销商品列表（不含描述and图片，提升拉取效率）	52
+ 
+一、基础参数
+通用参数是调用所有API都需使用的传入参数。
+名称	类型	必填	说明	示例
+action	String()	Y	方法名
+接口英文名	createOutboundOrder
+app_key	String()	Y	万邑联账户
+登录万邑联的账号	rebecca
+timestamp	String()	N	时间(yyyy-MM-dd HH:mm:ss）	
+version	String()	N	版本
+接口版本	1.0
+sign	String()	Y	客户签名
+签名生成方法，请参照：《签名认证》中sign的生成
+
+sign_method	String()	N	签名方式	md5
+format	String()	N	格式	json
+platform	String()	Y	应用Code
+应用Code获取方法，请参照《开发者控制台 操作手册》
+OWNERERP
+language	String()	N	语言	zh_CN
+data	String()	N	业务参数	
+
+
+
+二、签名拼接方法
+用户签名,基础参数：sign
+按字段名的字母顺序拼接（包括data中的json字符串也按此规则），将token放在字符串的两端并md5加密用户签名串 = token + action + actionValue + app_key + app_keyValue + data + dataValue + format + formatValue + platform + platformValue + sign_method + sign_methodValue + timestamp + timestampValue + version+ versionValue + token
+对以上拼接后的签名串进行MD5运算，并转换成大写的32位签名。
+用户签名sign = toUpperCase(MD5(用户签名串)
+注：token是由客户/卖家 登陆万邑链->系统设置->获取token，直接可以在万邑链系统后台获得。
+三、创建发货单
+接口说明
+分销商提供商品sku、数量、收件人地址、发货仓、派送方式等信息创建物流订单进行发货
+使用场景
+分销商在刊登可卖商品后，产生了销售订单时，使用此接口创建发货订单（由供货商下物流订单）寄送包裹给买家
+备注
+无
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+repeatable	String(1)	Y	用户授权此发货单是否分销商订单号可重复。是否允许重复不可为空。 eg. 可重复则取值 ‘Y’ 不可重复则取值‘N’,当repeatable =Y时允许重复，即一个分销商订单号sellerOrderNo是可以重复创建发货订单的；当repeatable=N时不允许重复，一个分销商订单号sellerOrderNo只允许生成一张发货订单	跟ebay订单校验无关
+isAuto	String(1)	Y	是否自动推送发货物流订单,当isAuto=Y时，系统自动将发货订单进行推送，订单状态转为等待发货,当isAuto=N时，此时需要分销商再次使用确认发货wanyilian.distributor.order.confirm，订单状态才会转为等待发货	Y/N
+sellerOrderNo	String()	N	分销商订单号	
+recipientName	String()	Y	收件人姓名,来自于由eBay买家提供收货地址。收件人姓名不可为空	
+phoneNum	String()	Y	收件人电话	
+zipCode	String()	Y	邮政编码	
+emailAddress	String()	Y	收件人电子邮箱	
+state	String()	Y	收件人国家名称，可使用国家英文全称或是ISO国家代码。收件人国家不可为空	
+region	String()	Y	收件人州名称。收件人州不可为空	
+city	String()	Y	城市	
+address1	String()	Y	收件人街道1	
+address2	String()	N	收件人街道2	
+doorplateNumbers	String()	N	派送方式为DHL、UK DPD，门牌号必填	
+VATNo	String()	N	UK必填	
+PackageList	Array		包裹列表，以下为包裹节点	
+-|packageNo	String()	N	包裹序号	
+-|warehouseCode	String()	N	万邑通海外仓code，唯一，可查询	
+-|deliveryWayCode	String()	Y	最后一公里派送方式code,最后一公里派送方式code不可为空,可查询	
+-|authBarcode	String()	N	授权条码，供货分销关系唯一授权码	允许为空，保留字段
+-|eBayOrderID	String()	N	eBay OrderID 用于标识一条唯一的eBay 订单，这个订单可以包含一个或多个商品交易（一个交易对应一个eBay 上的Transaction_ID + Item_ID）. 当买家在一个时间向同一卖家购买多种商品，eBay 将会基于这些交易（Transaction）生成一个唯一订单号（OrderID）。当买家一次仅仅购买一种商品（一个ItemID）时，则此OrderID 与此笔交易一一对应。 在使用CompleteSale 接口时，OrderID 被用于定位一笔订单	
+-|productList	Array		出库商品列表,以下为子节点	
+-|-|productCode	String()	Y	分销平台系统编码，对应查询分销商品接口wanyilian.supplier.spu.querySPUList的randomSKU系统编码	
+-|-|eBayTransactionID	Long	N	eBay TransactionID。eBay TransactionID为选填。 eBay上使用TransactionID+ItemID标识一个唯一的交易，一个OrderID可以对应一个或多个交易。 当一笔交易的拍卖方式为‘BID’时，此笔交易的TransactionID为‘0’。 eBay API参考： eBay API: GetOrders Paramater: OrderArray.Order.TransactionArray.Transaction.TransactionID	
+-|-|eBayItemID	Long	N	eBay ItemID。eBay ItemID为选填。 eBay上使用描述一个刊登的唯一标识。一个刊登可以产生多笔交易，但是ItemID是唯一不变的。 eBay API参考： eBay API: GetOrders Paramater: OrderArray.Order.TransactionArray.Transaction.Item.ItemID	
+-|-|eBaySellerID	String()	N	当前Transaction对应的eBay Seller ID。eBay Seller ID为选填。 eBay API参考： eBay API: GetOrders Paramater: OrderArray.Order.SellerUserID	
+-|-|eBayBuyerID	String()	N	当前Transaction对应的eBay Buyer ID。eBay Buyer ID为选填。 eBay API参考： eBay API: GetOrders Paramater: OrderArray.Order.BuyerUserID	
+-|-|productNum	Integer	Y	一个海外仓出库单所包含的某个产品的数量。产品对应的单品数量必须>0	
+请求示例
+{
+    "action":"wanyilian.distributor.order.create",
+    "app_key":"rebecca",
+    "data":{
+        "address1":"1 Stafford Crt.",
+        "address2":"aaaaaaa",
+        "city":"Bayswater North",
+        "doorplateNumbers":"109",
+        "emailAddress":"abc@winit.com",
+        "phoneNum":"15900001111",
+        "VATNo":"vattest001",
+        "packageList":[
+            {
+                "packageNo":"",
+                "warehouseCode":"US0003",
+                "deliveryWayCode":"OSF1010520",
+                "authBarcode":"",
+                "eBayOrderID":"3434245-24377766",
+                "productList":[
+                    {
+                        "eBayBuyerID":"98877456rere",
+                        "eBaySellerID":"99887rtrtr66123",
+                        "eBayItemID":"3434245",
+                        "eBayTransactionID":"24377766",
+                        "productCode":"LCD-IP4-06",
+                        "productNum":"3",
+                    },
+                    {
+                        "eBayBuyerID":"98877456rere",
+                        "eBaySellerID":"99887rtrtr66123",
+                        "eBayItemID":"3434245",
+                        "eBayTransactionID":"24377766",
+                        "productCode":"WLCD-IP4-01",
+                        "productNum":"1",
+                    }
+                ]
+            }
+        ],
+        "recipientName":"mingbao",
+        "region":"WV",
+        "repeatable":"Y",
+        "isAuto":"N",
+        "sellerOrderNo":"PowerSellerABC123",
+        "state":"US",
+        "zipCode":"25085"
+    },
+    "format":"json",
+    "language":"zh_CN",
+    "platform":"SELLERERP",
+    "sign":"00000000000000000000000000000000",
+    "sign_method":"md5",
+    "timestamp":"2016-06-16 00:19:26",
+    "version":"1.0"
+}
+
+返回出参
+名称	类型	必填	说明	示例
+orderNums	Array	Y	发货订单号列表	
+-|orderNo	String()	Y	发货订单号	由分销平台生成返回
+-|estimateCost	Number(,2)	Y	预估费用（RMB），精确至百分位	因OMS预做费用接口为USD，获得预估total费用后，需由美元转RMB
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+    "code":0,
+    "data":{
+        "orderNums":[
+            {
+                "orderNo":"WO1605745-1",
+                "estimateCost":3.98,
+            }
+        ]
+    },
+    "msg":"成功"
+}
+
+四、取消发货单
+接口说明
+分销商在创建完发货订单后，要求作废订单时调用此接口，指定发货订单号进行作废
+使用场景
+分销商取消发货订单（待推送状态下订单）
+备注
+草稿DR和等待发货PHI的可以作废，其中等待发货（推送中）PHI的订单要尝试取消推送（如果推送是个队列或定时任务的话，是可以作废掉的）
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+orderNums	Array	Y发货单号		
+请求示例
+{
+    "action": "wanyilian.distributor.order.void",
+    "app_key": "rebecca",
+    "data": {
+        "orderNums": ["WO1605745","WO1605745"]
+    },
+    "format": "json",
+    "language": "zh_CN",
+    "platform": "SELLERERP",
+    "sign": "00000000000000000000000000000000",
+    "sign_method": "md5",
+    "timestamp": "2015-06-16 001926",
+    "version": "1.0"
+}
+
+
+返回出参
+名称	类型	必填	说明	示例
+successCount	String()	Y	推送成功订单数量	
+failedCount	String()	Y	推送失败订单数量	
+results	Array		结果列表	
+-| orderNum	String()	Y	发货单号	
+-| result	String(1)	Y	推送结果	Y/N
+-| reason	String()	Y	失败原因	
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+    "code":"0",
+    "msg":"操作成功",
+    "data":{
+        "successCount":2,
+        "failedCount":0,
+        "results":[
+            {
+                "orderNum":"WO1605745",
+                "result":"Y",
+                "reason":""
+            },
+            {
+                "orderNum":"WO1605745",
+                "result":"Y",
+                "reason":""
+            }
+        ]
+    }
+}
+
+五、推送发货单
+接口说明
+分销商在创建完发货订单后，未设置自动推送时（发货单状态为草稿），使用此接口进行推送
+使用场景
+分销商推送发货单（至等待发货状态下）
+备注
+草稿DR状态下发货订单可以推送，调用此接口后发货单状态为等待发货
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+接口测试	https://openapi.uat1.winit.com.cn/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+orderNums	Array	Y发货单号		
+请求示例
+{
+    "action": "wanyilian.distributor.order.confirm",
+    "app_key": "rebecca",
+    "data": {
+        "orderNums": ["DO1605745","D1605745"]
+    },
+    "format": "json",
+    "language": "zh_CN",
+    "platform": "SELLERERP",
+    "sign": "00000000000000000000000000000000",
+    "sign_method": "md5",
+    "timestamp": "2015-06-16 001926",
+    "version": "1.0"
+}
+
+返回出参
+名称	类型	必填	说明	示例
+successCount	String()	Y	推送成功订单数量	
+failedCount	String()	Y	推送失败订单数量	
+results	Array		结果列表	
+-| orderNum	String()	Y	发货单号	
+-| result	String(1)	Y	推送结果	Y/N
+-| reason	String()	Y	失败原因	
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+    "code":"0",
+    "msg":"操作成功",
+    "data":{
+        "successCount":2,
+        "failedCount":0,
+        "results":[
+            {
+                "orderNum":"WO1605745",
+                "result":"Y",
+                "reason":""
+            },
+            {
+                "orderNum":"WO1605745",
+                "result":"Y",
+                "reason":""
+            }
+        ]
+    }
+}
+
+六、查询发货单（列表）
+接口说明
+分销商通过此接口，使用发货单号、自定义单号、出库订单号、快递单号等条件查询发货订单列表
+使用场景
+分销商查询发货订单信息列表，常用于分页控件调用
+备注
+无
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+orderNum	String()	N	发货单号	
+sellerOrderNo	String()	N	自定义订单号	
+outboundOrderNum	String()	N	出库订单号（供货商海外仓出库物流订单号）	
+trackingNo	String()	N	快递单号	
+warehouseCode	String()	N	海外仓仓库编码	
+recipientName	String()	N	收件人姓名	
+productCode	String()	N	分销平台系统编码，对应查询分销商品接口,wanyilian.supplier.spu.querySPUList的randomSKU系统编码	
+dateOrderedStartDate	String()	N	yyyy-MM-dd 发货单下单时间	
+dateOrderedEndDate	String()	N	yyyy-MM-dd发货单下单时间	
+orderStatus	String()	N	状态值，多个状态时可依逗号隔开	1草稿,2等待发货,3已推送,4推送失败,5已发货,6留言待处理,11用户取消,12系统取消,13退件
+pageParams	Array	N	分页参数	
+-|pageNo	String()	Y	页码，第几页	默认1
+-|pageSize	String()	Y	分页大小，每页记不数	分页大小，每页记不数
+请求示例
+{
+    "action":" wanyilian.distributor.order.queryOrderList ",
+    "app_key":"rebecca",
+    "data":{
+        "orderNum":" S10016230",
+        "sellerOrderNo":"",
+        " outboundOrderNum ":"",
+        " trackingNo ":null,
+        " warehouseCode ":null,
+        " recipientName ":"",
+        " productCode ":"",
+        " dateOrderedStartDate ":"2018-8-20",
+        " dateOrderedEndDate ":"2018-8-22",
+        "orderStatus":"1,2",
+        "pageParams":{
+            "pageNo":"1",
+            "pageSize":"100"
+        }
+    },
+    "format":"json",
+    "language":"zh_CN",
+    "platform":"SELLERERP",
+    "sign":"00000000000000000000000000000000",
+    "sign_method":"md5",
+    "timestamp":"2015-06-16 001926",
+    "version":"1.0"
+}
+
+
+返回出参
+名称	类型	必填	说明	示例
+orderNum	String()	Y	发货单号	
+outboundOrderNum	String()	Y	海外仓出库单编号	
+sellerOrderNo	String()	Y	客户自定义订单号	
+IsAuto	String(1)	Y	是否自动推送发货物流订单,当isAuto=Y时，系统自动将发货订单进行推送，订单状态转为等待发货;当isAuto=N时，此时需要分销商再次使用确认发货wanyilian.distributor.order.confirm，订单状态才会转为等待发货	
+isRepeat	String(1)	Y	用户授权此发货单是否分销商订单号可重复。是否允许重复不可为空。 eg. 可重复则取值 ‘Y’ 不可重复则取值‘N’;当repeatable =Y时允许重复，即一个分销商订单号sellerOrderNo是可以重复创建发货订单的；当repeatable=N时不允许重复，一个分销商订单号sellerOrderNo只允许生成一张发货订单	Y/N
+orderStatusName	String()	Y	发货单状态名称	
+orderStatus	String()	Y	发货单状态	
+statusName	String()	Y	出库单状态名称	
+status	String()	Y	出库单状态	
+eBayValidateResult	String()	Y	是否ebay返利	
+isEBayOrder	String()	Y	是否为ebay订单	
+winitTrackingNo	String()	Y	winit跟踪号,在万邑联->我的资料中同意了海外仓出库扫描信息上传服务免责声明，才会返回	
+trackingNum	String()	Y	最后一公里物流追踪号	
+chargeableWeight	Number	Y	包裹计费重量，kg	
+totalCost	Number	Y	总费用（处理费+派送费+其它），单位为USD	
+orderedTime	String()	Y	出库单创建时间(系统时间)	
+state	String()	Y	收件人国家	
+packageList	Array		包裹列表，以下为包裹节点	
+-|warehouseCode	String()	Y	万邑通海外仓ID，唯一，可查询	
+-|warehouseName	String()	Y	万邑通海外仓名称	
+-|deliveryWayCode	String()	Y	最后一公里派送方式代码。最后一公里派送方式代码不可为空。 可查询	
+-|deliverywayName	String()	Y	最后一公里派送方式名称	
+-| productInfo	String()	Y	出库商品信息拼接，商品数量使用*，多个商品使用@@	LCD-IP4-01*1@@LCD-IP4-06*3
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+    "code":0,
+    "msg":"操作成功",
+    "pageParams":{
+        "totalCount":1,
+        "pageNo":1,
+        "pageSize":100
+    },
+    "data":{
+        "list":[
+            {
+                "orderNum":"D129104109131",
+                "outboundOrderNum":"WO0817428796",
+                "sellerOrderNo":"PowerSellerABC123",
+                "isAuto":"N",
+                "isRepeat":"N",
+                "orderStatusName":"出库单已取消",
+                "orderStatus":"OWVO",
+                "status":"VO",
+                "statusName":"已取消",
+                "eBayValidateResult":null,
+                "isEBayOrder":"N",
+                "trackingNum":"",
+                "winitTrackingNo":null,
+                "chargeableWeight":0.2,
+                "totalCost":0,
+                "orderedTime":"2018-06-14 13:59:57",
+                "state":"US",
+                "packageList":[
+                    {
+                        "warehouseCode":"US0003",
+                        "warehouseName":"UKGF Warehouse",
+                        "deliveryWayCode":"OSF1010520",
+                        "deliverywayName":"Yodel - Packet Home Mini (Economy 2-4 Working Days)-UKGF",
+                        "productInfo":"LCD-IP4-01*1@@LCD-IP4-06*3"
+                    }
+                ]
+            }
+        ]
+    }
+}
+
+七、查询发货单
+接口说明
+分销商使用发货单号，查询发货订单详情信息
+使用场景
+分销商在创建发货单后，查询发货订单详情信息，用于确认商品包裹的物流发货等信息
+备注
+无
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+接口测试	https://openapi.uat1.winit.com.cn/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+orderNum	String()	Y	发货单号	
+请求示例
+{
+    "action":" wanyilian.distributor.order.queryOrder",
+    "app_key":"rebecca",
+    "data":{
+        "orderNum":"O0817428796"
+    },
+    "format":"json",
+    "language":"zh_CN",
+    "platform":"SELLERERP",
+    "sign":"71D15E8D3333B34576BE16D7A3E82573",
+    "sign_method":"md5",
+    "timestamp":"2015-06-16 00:19:26",
+    "version":"1.0"
+}
+
+返回出参
+名称	类型	必填	说明	示例
+orderNum	String()	Y	发货单号	
+outboundOrderNum	String()	Y	海外仓出库单编号	
+sellerOrderNo	String()	Y	客户自定义订单号	
+IsAuto	String(1)	Y	是否自动推送发货物流订单,当isAuto=Y时，系统自动将发货订单进行推送，订单状态转为等待发货;当isAuto=N时，此时需要分销商再次使用确认发货wanyilian.distributor.order.confirm，订单状态才会转为等待发货	
+isRepeat	String(1)	Y	用户授权此发货单是否分销商订单号可重复。是否允许重复不可为空。 eg. 可重复则取值 ‘Y’ 不可重复则取值‘N’;当repeatable =Y时允许重复，即一个分销商订单号sellerOrderNo是可以重复创建发货订单的；当repeatable=N时不允许重复，一个分销商订单号sellerOrderNo只允许生成一张发货订单	Y/N
+orderStatusName	String()	Y	发货单状态名称	
+orderStatus	String()	Y	发货单状态	
+statusName	String()	Y	出库单状态名称	
+status	String()	Y	出库单状态	
+reasonForVoid	String()	Y	作废原因	
+isOperateByWinit	String()	Y	是否万邑通后台作废	
+eBayValidateResult	String()	Y	是否ebay返利	
+isEBayOrder	String()	Y	是否为ebay订单	
+carrier	String()	Y	派送公司名称	
+ebayName	String()	Y	Ebay上显示的快递公司名	
+winitTrackingNo	String()	Y	winit跟踪号,在万邑联->我的资料中同意了海外仓出库扫描信息上传服务免责声明，才会返回	
+trackingNum	String()	Y	最后一公里物流追踪号	
+chargeableWeight	Number	Y	包裹计费重量，kg	
+totalCost	Number	Y	总费用（处理费+派送费+其它），单位为USD	
+orderedTime	String()	Y	出库单创建时间(系统时间)	
+outboundDate	String()	Y	出库时间	
+state	String()	Y	收件人国家	
+city	String()	Y	收件人城市（澳洲为SUBURB，对应邮编）	
+region	String()	Y	收件人州	
+address1	String()	Y	收件人街道1	
+address2	String()	Y	收件人街道1	
+phoneNum	String()	Y	收件人电话	
+recipientName	String()	Y	收件人姓名	
+emailAddress	String()	Y	收件人邮箱	
+zipCode	String()	Y	邮政编码	
+transactionDate	String()	Y	邮政编码	
+packageList	Array		包裹列表，以下为包裹节点	
+-|packageNo	String()	y	包裹序号	
+-|warehouseCode	String()	Y	万邑通海外仓ID，唯一，可查询	
+-|warehouseName	String()	Y	万邑通海外仓名称	
+-|deliveryWayCode	String()	Y	最后一公里派送方式代码。最后一公里派送方式代码不可为空。 可查询	
+-|deliverywayName	String()	Y	最后一公里派送方式名称	
+-|authBarcode	String()	Y	授权条码，供货分销关系唯一授权码	允许为空，保留字段
+-|eBayOrderID	String()	Y	eBay OrderID 用于标识一条唯一的eBay订单，这个订单可以包含一个或多个商品交易（一个交易对应一个eBay上的Transaction_ID + Item_ID）. 当买家在一个时间向同一卖家购买多种商品，eBay将会基于这些交易（Transaction）生成一个唯一订单号（OrderID）。当买家一次仅仅购买一种商品（一个ItemID）时，则此OrderID与此笔交易一一对应。 在使用CompleteSale接口时，OrderID被用于定位一笔订单	
+-|productList	Array	Y	出库商品列表,以下为子节点	
+-|-|productCode	String()	Y	分销平台系统编码，对应查询分销商品接口wanyilian.supplier.spu.querySPUList的randomSKU系统编码	
+-|-|eBayTransactionID	String()	Y	eBay TransactionID。eBay TransactionID为选填。 eBay上使用TransactionID+ItemID标识一个唯一的交易，一个OrderID可以对应一个或多个交易。 当一笔交易的拍卖方式为‘BID’时，此笔交易的TransactionID为‘0’。 eBay API参考： eBay API: GetOrders Paramater: OrderArray.Order.TransactionArray.Transaction.TransactionID	
+-|-|eBayItemID	String()	Y	eBay ItemID。eBay ItemID为选填。 eBay上使用描述一个刊登的唯一标识。一个刊登可以产生多笔交易，但是ItemID是唯一不变的。 eBay API参考： eBay API: GetOrders Paramater: OrderArray.Order.TransactionArray.Transaction.Item.ItemID	
+-|-|eBaySellerID	String()	Y	当前Transaction对应的eBay Seller ID。eBay Seller ID为选填。 eBay API参考： eBay API: GetOrders Paramater: OrderArray.Order.SellerUserID	
+-|-|eBayBuyerID	String()	Y	当前Transaction对应的eBay Buyer ID。eBay Buyer ID为选填。 eBay API参考： eBay API: GetOrders Paramater: OrderArray.Order.BuyerUserID	
+-|-|productNum	Integer	Y	一个海外仓出库单所包含的某个产品的数量。产品对应的单品数量必须>0	
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+    "code":0,
+    "msg":"操作成功",
+    "data":{
+        "orderNum":"D129104109131",
+        "outboundOrderNum":"WO0817428796",
+        "sellerOrderNo":"PowerSellerABC123",
+        "isAuto":"N",
+        "isRepeat":"N",
+        "orderStatusName":"出库单已取消",
+        "orderStatus":"OWVO",
+        "status":"VO",
+        "statusName":"已取消",
+        "reasonForVoid":null,
+        "isOperateByWinit":"N",
+        "eBayValidateResult":null,
+        "isEBayOrder":"Y",
+        "carrier":"Yodel Ltd",
+        "ebayName":"Yodel",
+        "trackingNum":"",
+        "winitTrackingNo":null,
+        "chargeableWeight":0.2,
+        "totalCost":0,
+        "outboundDate":null,
+        "orderedTime":"2018-06-14 13:59:57",
+        "bpName":"Winit (UK)",
+        "cFromBpartnerId":0,
+        "address1":"1 Stafford Crt.",
+        "address2":"aaaaaaa",
+        "city":"Bayswater North",
+        "doorplateNumbers":"109",
+        "emailAddress":"abc@winit.com",
+        "phoneNum":"15900001111",
+        "packageList":[
+            {
+                "packageNo":"",
+                "warehouseCode":"US0003",
+                "warehouseName":"UKGF Warehouse",
+                "deliveryWayCode":"OSF1010520",
+                "deliverywayName":"Yodel - Packet Home Mini (Economy 2-4 Working Days)-UKGF",
+                "authBarcode":"",
+                "eBayOrderID":"3434245-24377766",
+                "productList":[
+                    {
+                        "eBayBuyerID":"98877456rere",
+                        "eBaySellerID":"99887rtrtr66123",
+                        "eBayItemID":"3434245",
+                        "eBayTransactionID":"24377766",
+                        "productCode":"LCD-IP4-06",
+                        "productNum":"3"
+                    },
+                    {
+                        "eBayBuyerID":"98877456rere",
+                        "eBaySellerID":"99887rtrtr66123",
+                        "eBayItemID":"3434245",
+                        "eBayTransactionID":"24377766",
+                        "productCode":"LCD-IP4-01",
+                        "productNum":"1"
+                    }
+                ]
+            }
+        ],
+        "recipientName":"mingbao",
+        "region":"WV",
+        "repeatable":"Y",
+        "state":"US",
+        "zipCode":"25085"
+    }
+}
+
+八、查询派送方式
+接口说明
+通过本接口用户可通过提交海外仓ID来查询该仓库对应的派送方式
+使用场景
+通过该接口，用户可查询库仓对应的所有派送方式，选择合适的派送方式
+备注
+无
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+warehouseCode	String()	Y	海外仓库编码	
+请求示例
+{
+    "action":"wanyilian.platform.queryDeliveryWay",
+    "app_key":"rebecca",
+    "data":{
+        “warehouseCode”:” USWC”
+    },
+    "format":"json",
+    "language":"zh_CN",
+    "platform":"SELLERERP",
+    "sign":"899118225E11FB2423AB088EE1213248",
+    "sign_method":"md5",
+    "timestamp":"2015-06-16 00:19:26",
+    "version":"1.0"
+}
+返回出参
+名称	类型	必填	说明	示例
+winitProductCode	String()	Y	派送方式代码	
+deliveryWay	String()	Y	派送方式名称	
+warehouseCode	String()	Y	海外仓仓库编码	
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+   "code": "0",
+   "msg": "操作成功",
+   "data":    [
+            {
+         "deliveryWay": "UPS GROUND SERVICE",
+         "warehouseCode": USWC,
+         "winitProductCode": "OSF810595"
+      },
+            {
+         "deliveryWay": "UPS Ground Sign Service",
+         "warehouseCode": USWC,
+         "winitProductCode": "OSF810598"
+      }
+   ]
+}
+
+九、查询分销商品（单个）
+接口说明
+分销商或第三方平台通过该接口可查询可分销商品信息。
+使用场景
+使用分销商品列表接口拉取基础数据库，可根据此接口拉取其他详情数据，例如描述，图片等
+接口名称
+wanyilian.supplier.spu.querySPUList
+请求说明
+请求内容	说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，1000有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+SPU	String()	Y	SPU，分销系统生成分销商品维一标识码	
+SKU	String()	N	商品编码，一般为客户商品唯一编码	
+请求示例
+{
+    "action":"wanyilian.supplier.spu.querySPUList",
+    "app_key":"rebecca",
+    "data":{
+        "SPU":" S10016230",
+        "SKU":""
+    },
+    "format":"json",
+    "language":"zh_CN",
+    "platform":"SELLERERP",
+    "sign":"00000000000000000000000000000000",
+    "sign_method":"md5",
+    "timestamp":"2015-06-16 001926",
+    "version":"1.0"
+}
+返回出参
+返回参数说明：正确的返回编码0及结果，错误的返回错误码及错误信息。
+名称	类型	必传	说明	示例
+SPU	String()	Y	SPU分销系统生成分销商品维一标识码	S10016230
+userDefinedCode	String()	Y	客户自定义编码	
+title	String()	Y	商品标题	
+chineseName	String()	Y	中文名称	
+englishName	String()	Y	英文名称	
+totalInventory	Number	Y	可用总库存	
+cid	int	Y	商品分类id（新增）	
+saleTypeIds	String()	Y	商品销售类型（新增）	
+keywords	String()	Y	关键词,多个关键词依逗号分隔	
+description	String()	Y	商品描述html文本	
+publishType	String()	Y	unPublish：未发布
+Draft：草稿
+Publish：发布
+Obtained：下架	
+thumbnail	String()	Y	主图url	
+warehouseName	String()	Y	仓库名称	
+warehouseCode	String()	Y	仓库代码	
+SKUlist	Array	Y	商品列表	
+-|SKU	String()	Y	商品编码	
+-|randomSKU	String()	Y	系统编码	
+-|supplyInventory	Number	Y	供货库存	
+-|sepcification	String()	Y	商品规格	
+-|rebate	Number	Y	折扣（%）	0-100
+-|supplyPrice	Number	Y	供货价格(RMB)	
+-|settlePrice	Number	Y	结算价格(RMB), 结算价格=供货价格*折扣	
+-|minRetailPrice	Number	Y	最低零售价（本地币种）	
+-|retailPriceCode	String()	Y	最低零售价币种	CNY,USD,AUD
+-|weight	Number	Y	重量（kg）	
+-|length	Number	Y	长度（cm）	
+-|width	Number	Y	宽度（cm）	
+-|height	Number	Y	高度（cm）	
+-|updateDate	String()	Y	更新时间	
+-|recommenSkuLogistics	Array	Y	推荐物流	
+-|-|area	String()	Y	分区	
+-|-|areaName	String()	Y	分区名称	
+-|-|postCode	String()	Y	邮编	
+-|-|winitProductName	String()	Y	推荐物流	
+-|-|miniPscCost	Number	Y	最小物流费用	
+-|-|floorPrice	Number	Y	建议最低售价	
+-|-|costPrice	Number	Y	供货价格	
+-|-|rebatePscFee	Number	Y	返利价格	
+-|-|rebateRate	Number	Y	返利利率	
+-|-|platformFee	Number	Y	平台费用	
+-|-|grossProfit	Number	Y	毛利	
+-|-|grossProfitMargin	Number	Y	毛利率	
+-|-|currency	String()	Y	币种	
+-|itemPropertyList	**	Y	商品属性	
+-|-|key	String()	Y	属性-键	
+-|-|value	String()	Y	属性-值	
+ebayListingSubsidy	Number	Y	ebay刊登补贴（RMB）	
+imgList	Array	Y	图片明细	
+-|imgURL	String()	Y	图片链接	
+返回示例
+{
+    "code": "0",
+    "msg": "操作成功",
+    "data": {
+        "pageParams": {
+            "pageNo": 1,
+            "pageSize": 10,
+            "totalCount": 1
+        },
+        "SPUList": [
+            {
+                "englishName": null,
+                "updateDate": "2023-07-17 16:03:54",
+                "keywords": "",
+                "description": "<p>15 Meter Trampoline Sprinkler<br />\n </p>\n\n<p> </p>\n\n<table align=\"center\">\n\t<tbody>\n\t\t<tr>\n\t\t\t<td>\n\t\t\t<p>Spray Water Park Summer Sprinkler Outdoor Water Game</p>\n\n\t\t\t<p>Transform your Trampoline in minutes, so easy to install.</p>\n\n\t\t\t<p>Comes with everything you need to plug into your normal hose pipe.</p>\n\n\t\t\t<p>* ★[Trampoline Sprinkler] Our Trampoline Sprinkler can let kids play freely in the courtyard and spend the cool summer. Our Trampoline Water Sprinkler can reduce the temperature on the trampoline by 25 degrees. Bring a cool summer for your love kids!</p>\n\n\t\t\t<p>* ★[Safe for Children to Play] This sprinkler is made of Safe and environmental materials,no smell,It is UV resistant, does not deform or swell under the sun, can be repeated used on hot days. The hose attached on the outside of the trampoline net can avoid your child accidentally grab it while jumping.</p>\n\n\t\t\t<p>* ★[Easy to Use] As one of trampoline accessories, the water sprinkler is easy to install and use. Attach the hose on the outside of the trampoline net, Connect hose to faucet, turn on the tap, and begin your kids' party in the outdoor water park.</p>\n\n\t\t\t<p>* ★[Different Sizes] Fits  15ft trampolines.</p>\n\n\t\t\t<p>* ★[Wide Application] You can let your summer water party begin by installing the water pipe on a trampoline. And you don't have to use this product only for a trampoline, it also can be used for garden, lawn watering, and outdoor cooling for dogs and so on.</p>\n\t\t\t</td>\n\t\t</tr>\n\t</tbody>\n</table>",
+                "SKUList": [
+                    {
+                        "supplyInventory": 19,
+                        "sepcification": null,
+                        "supplyPrice": 4444.00,
+                        "recommenSkuLogistics": [
+                            {
+                                "area": "NSW",
+                                "floorPrice": 1194.74,
+                                "winitProductName": "AU Post - Parcel Post eParcel (Standard 2-6 Business Days)-AUSY",
+                                "rebateRate": 0,
+                                "costPrice": 913.07,
+                                "rebatePscFee": 0,
+                                "platformFee": 179.21,
+                                "grossProfitMargin": 8,
+                                "miniPscCost": 6.88,
+                                "areaName": "NSW区",
+                                "currency": "AUD",
+                                "postCode": "1000-2263",
+                                "grossProfit": 95.58
+                            }
+                        ],
+                        "rebate": 1.00,
+                        "dailySales": "",
+                        "length": 22.00,
+                        "settlePrice": 4444.00,
+                        "dailyRents": "",
+                        "weight": 0.170,
+                        "itemPropertyList": [
+                            {
+                                "value": "8m",
+                                "key": "Size"
+                            }
+                        ],
+                        "warehouseName": "万邑通AU仓澳洲",
+                        "warehouseCode": "EWD",
+                        "retailPriceCode": "AUD",
+                        "minWholesalePrice": "",
+                        "minRetailPrice": 0.00,
+                        "randomSKU": "w12537028",
+                        "privateInventory": 0,
+                        "width": 14.00,
+                        "SKU": "AUJJ037",
+                        "wholesalePrice": 1.00,
+                        "height": 3.50
+                    },
+                    {
+                        "supplyInventory": 24,
+                        "sepcification": null,
+                        "supplyPrice": 4444.00,
+                        "recommenSkuLogistics": [
+                            {
+                                "area": "NSW",
+                                "floorPrice": 1194.74,
+                                "winitProductName": "AU Post - Parcel Post eParcel (Standard 2-6 Business Days)-AUSY",
+                                "rebateRate": 0,
+                                "costPrice": 913.07,
+                                "rebatePscFee": 0,
+                                "platformFee": 179.21,
+                                "grossProfitMargin": 8,
+                                "miniPscCost": 6.88,
+                                "areaName": "NSW区",
+                                "currency": "AUD",
+                                "postCode": "1000-2263",
+                                "grossProfit": 95.58
+                            }
+                        ],
+                        "rebate": 1.00,
+                        "dailySales": "",
+                        "length": 21.00,
+                        "settlePrice": 4444.00,
+                        "dailyRents": "",
+                        "weight": 0.315,
+                        "itemPropertyList": [
+                            {
+                                "value": "15m",
+                                "key": "Size"
+                            }
+                        ],
+                        "warehouseName": "万邑通AU仓澳洲",
+                        "warehouseCode": "EWD",
+                        "retailPriceCode": "AUD",
+                        "minWholesalePrice": "",
+                        "minRetailPrice": 0.00,
+                        "randomSKU": "w12537032",
+                        "privateInventory": 0,
+                        "width": 16.00,
+                        "SKU": "AUJJ044",
+                        "wholesalePrice": 1.00,
+                        "height": 6.00
+                    }
+                ],
+                "totalInventory": 77,
+                "title": "15M Trampoline Sprinkler Water Spray Park Kid Fun Summer Outdoor Water Games",
+                "warehouseName": "万邑通AU仓澳洲",
+                "warehouseCode": "EWD",
+                "categoryList": [
+                    {
+                        "fatherCategoryID": 11700,
+                        "categoryName": "Home & Garden",
+                        "categoryID": 11700
+                    },
+                    {
+                        "fatherCategoryID": 11700,
+                        "categoryName": "Other Home & Garden",
+                        "categoryID": 181076
+                    }
+                ],
+                "SPU": "S10092556",
+                "categoryID": 181076,
+                "uDefinedCategoryList": [
+                    {
+                        "uDefinedCategoryID": 1,
+                        "uDfatherCategoryID": null,
+                        "uDefinedCategoryName": "家居/园艺"
+                    },
+                    {
+                        "uDefinedCategoryID": 2,
+                        "uDfatherCategoryID": null,
+                        "uDefinedCategoryName": "户外运动"
+                    },
+                    {
+                        "uDefinedCategoryID": 97,
+                        "uDfatherCategoryID": null,
+                        "uDefinedCategoryName": "汽车用品"
+                    },
+                    {
+                        "uDefinedCategoryID": 98,
+                        "uDfatherCategoryID": null,
+                        "uDefinedCategoryName": "工业用品"
+                    },
+                    {
+                        "uDefinedCategoryID": 99,
+                        "uDfatherCategoryID": null,
+                        "uDefinedCategoryName": "其他"
+                    }
+                ],
+                "thumbnail": null,
+                "supplierAccount": "Queenie0320",
+                "ebayListingSubsidy": 0.00,
+                "supplierCompany": "0",
+                "afterSaleRuleId": null,
+                "afterSaleRuleNo": "R00011",
+                "saleTypeIds": "1",
+                "publishType": "Obtained",
+                "chineseName": "澳洲仓 蹦床喷水 15米",
+                "userDefinedCode": "AUJJ044",
+                "imgList": [
+                    "http://wanyilian.com/erp/uploads/allimg/230427/0-23042G03P1-50.jpg",
+                    "http://wanyilian.com/erp/uploads/allimg/230427/0-23042G05330.jpg",
+                    "http://www.wanyilian.com/erp/uploads/allimg/230428/0-23042Q14U3.jpg"
+                ],
+                "cid": 1402
+            }
+        ]
+    }
+}
+
+十、查询仓库代码
+接口说明
+通过本接口用户可查询万邑通海外仓的仓库代码、仓库名称和仓库地址
+使用场景
+通过该接口，用户在下出库单前可查询万邑通海外仓的仓库代码、仓库名称和仓库地址
+备注
+无
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+				
+请求示例
+    {
+    "action":"wanyilian.platform.queryWarehouse",
+    "app_key":"rebecca",
+    "data":{
+
+    },
+    "format":"json",
+    "language":"zh_CN",
+    "platform":"SELLERERP",
+    "sign":"935063094225F4A657A1B151C9F8E7BA",
+    "sign_method":"md5",
+    "timestamp":"2015-06-16 00:19:26",
+    "version":"1.0"
+}
+
+返回出参
+名称	类型	必填	说明	示例
+warehouseCode	String()	Y	海外仓库代码	
+warehouseName	String()	Y	海外仓仓库名称	
+warehouseAddress	String()	Y	海外仓仓库地址	
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+   "code": 0,
+   "data":    [
+            {
+         "warehouseCode": "EWD",
+         "warehouseName": "AU Warehouse",
+         "warehouseAddress": "Australia,NSW,2143,PO Box 168 Regents Park,"
+      },
+            {
+         "warehouseCode": "US0001",
+         "warehouseName": "USWC Warehouse",
+         "warehouseAddress": "United States,CA,Industry,91748,18501 Arenth Ave, City of Industry,"
+      },
+            {
+         "warehouseCode": "UK0001",
+         "warehouseName": "UK Warehouse",
+         "warehouseAddress": "United Kingdom,Leicestershire,LE67 1LD,Unit 73 Interlink Way West,Bardon Business Park ,Bardon,"
+      }
+   ],
+   "msg": "成功"
+}
+
+十一、获取商品分类
+接口说明
+获取商品分类
+使用场景
+可以根据商品分类查询商品
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+请求示例
+{
+  "action": "wanyilian.supplier.spu.getCategoryList",
+  "app_key": "XXX",
+  "data": {},
+  "format": "json",
+  "language": "zh_CN",
+  "platform": "SELLERERP",
+  "sign_method": "md5",
+  "timestamp": "2019-06-24 09:59:26",
+  "version": "1.0",
+  "sign": "00000000000000000000000000000000"
+}
+返回出参
+名称	类型	说明	示例
+id	int	分类id	1
+name	String()	分类名称	平板
+level	int	分类级别（1/2/3）	1
+pid	int	父id（0为1级分类）	0
+remarks	String()	备注	
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+  "code": "0",
+  "msg": "操作成功",
+  "data": {
+    "list": [
+      {
+        "id": 1, // 分类ID
+        "name": "平板/平板配件", // 分类名称
+        "level": 1, // 当前分类级别
+        "pid": 0, // 父分类ID (pid=0为顶级分类)
+        "remarks": "" // 分类备注信息
+      },
+      {
+        "id": 2,
+        "name": "平板",
+        "level": 2,
+        "pid": 1,
+        "remarks": ""
+      }
+    ]
+  }
+}
+
+十二、获取商品销售类型
+接口说明
+获取商品销售类型
+使用场景
+可以根据商品销售类型查询商品
+请求说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+请求示例
+{
+  "action": "wanyilian.supplier.spu.getSaleTypeList",
+  "app_key": "xxx",
+  "data": {},
+  "format": "json",
+  "language": "zh_CN",
+  "platform": "SELLERERP",
+  "sign_method": "md5",
+  "timestamp": "2019-06-24 09:59:26",
+  "version": "1.0",
+  "sign": "00000000000000000000000000000000"
+}
+
+返回出参
+名称	类型	说明	示例
+id	int	销售类型id	1
+name	String()	销售类型名称	正常商品
+sort	int	排序(倒序)	1
+返回参数说明 正确的返回结果：查询成功。 错误的返回结果：错误码，错误信息
+返回示例
+{
+  "code": "0",
+  "msg": "操作成功",
+  "data": {
+    "list": [
+      {
+        "id": 1, // 销售类型ID
+        "name": “正常商品”, // 销售类型名称
+        "sort": 1 // 排序值(数字越大越靠前)
+      },
+      {
+        "id": 2,
+        "name": “清仓商品”,
+        "sort": 0
+      }
+    ]
+  }
+}
+
+十三、查询分销商品列表（不含描述and图片，提升拉取效率）
+接口说明
+分销商或第三方平台通过该接口可查询可分销商品信息列表，此接口不含商品描述和图片，提升拉取效率，拉取后可使用wanyilian.supplier.spu.querySPUList接口，传入SPU，精确拉取描述和图片。
+使用场景
+分销商在售卖前刊登时，查询可分销商品信息；第三方平台在展示可分销商品时，查询可分销商品列表。
+接口名称
+wanyilian.supplier.spu.getProductBaseList
+请求说明
+请求内容	说明
+URL	https://openapi.wanyilian.com/cedpopenapi/service
+
+验证方法	Token,md5
+格式	json
+字符编码	UTF-8
+http请求方式	http
+请求数限制	默认每分钟1000，1000有需要可申请加大。
+请求入参
+名称	类型	必填	说明	示例
+SPU	String()	N	SPU，分销系统生成分销商品维一标识码	
+SKU	String()	N	商品编码，一般为客户商品唯一编码	
+userDefinedCode	String()	N	客户自定义编码，添加分销商品时可自定义填写	
+cid	int	N	商品分类ID(新增)	1
+saleTypeIds	String()	N	商品销售类型（新增，支持多类型搜索）	1,2,3
+keywords	String()	N	标签/关键字	
+warehouseName	String()	N	仓库名称	
+warehouseCode	String()	N	仓库代码	
+isHavingInventory	String()	Y	是否有库存，默认”Y”	“Y/N”
+updateStartDate	String()	Y	SPU更新时间，起始时间	”2018-08-19 10:10:10“
+updateEndDate	String()	Y	SPU更新时间，截止时间	
+pageParams	Array	Y	分布参数	
+-|pageSize	int	Y	每页显示数量，默认和最大200	
+-|pageNo	int	Y	页码，第几页，默认1	
+请求示例
+ {
+  "action": "wanyilian.supplier.spu.getProductBaseList",
+  "app_key": "huangqiuhai",
+  "data": {
+    "SKU": "",
+    "SPU": "",
+    "cid": "",
+    "isHavingInventory": "Y",
+    "keywords": "",
+    "pageParams": {
+      "pageNo": 1,
+      "pageSize": 200,
+      "totalCount": 0
+    },
+    "uDefinedCategoryID": "",
+    "updateEndDate": "",
+    "updateStartDate": "",
+    "userDefinedCode": "",
+    "warehouseCode": "UKGF",
+    "warehouseName": ""
+  },
+  "format": "json",
+  "language": "zh_CN",
+  "platform": "SELLERERP",
+  "sign_method": "md5",
+  "timestamp": "2019-07-15 16:14:06",
+  "version": "1.0",
+  "sign": "xxx"
+}
+返回出参
+返回参数说明：正确的返回编码0及结果，错误的返回错误码及错误信息。
+名称	类型	必传	说明	示例
+SPU	String()	Y	SPU分销系统生成分销商品维一标识码	S10016230
+supplierAccount	String()	Y	供应商账号	
+supplierCompany	String()	Y	供应商名称	
+userDefinedCode	String()	Y	客户自定义编码	
+title	String()	Y	商品标题	
+chineseName	String()	Y	中文名称	
+englishName	String()	Y	英文名称	
+totalInventory	Number	Y	可用总库存	
+cid	int	Y	商品分类id（新增）	
+saleTypeIds	String()	Y	商品销售类型（新增）	
+publishType	String()	Y	unPublish：未发布
+Draft：草稿
+Publish：发布
+Obtained：下架	
+thumbnail	String()	Y	主图url	
+keywords	String()	Y	关键词,多个关键词依逗号分隔	
+warehouseName	String()	Y	仓库名称	
+warehouseCode	String()	Y	仓库代码	
+SKUList	Array	Y	商品列表	
+-|SKU	String()	Y	商品编码	
+-|randomSKU	String()	Y	系统编码	
+-|supplyInventory	Number	Y	供货库存	
+-|sepcification	String()	Y	商品规格	
+-|freeShip	String()	Y	包邮
+Y-是，N-否	
+-|rebate	Number	Y	折扣（%）	0-100
+-|supplyPrice	Number	Y	供货价格(RMB)	
+-|settlePrice	Number	Y	结算价格(RMB), 结算价格=供货价格*折扣	
+-|minRetailPrice	Number	Y	最低零售价（本地币种）	
+-|retailPriceCode	String()	Y	最低零售价币种	CNY,USD,AUD
+-|weight	Number	Y	重量（kg）	
+-|length	Number	Y	长度（cm）	
+-|width	Number	Y	宽度（cm）	
+-|height	Number	Y	高度（cm）	
+返回示例
+{
+    "code": "0",
+    "msg": "操作成功",
+    "data": {
+        "pageParams": {
+            "pageNo": 1,
+            "pageSize": 200,
+            "totalCount": 1
+        },
+        "SPUList": [
+            {
+                "title": "15M Trampoline Sprinkler Water Spray Park Kid Fun Summer Outdoor Water Games",
+                "englishName": null,
+                "chineseName": "澳洲仓 蹦床喷水 15米",
+                "keywords": "",
+                "userDefinedCode": "AUJJ044",
+                "publishType": "Obtained",
+                "thumbnail": "http://121.196.206.69:81/productImg/2023/04/27/pro_202304271047455.jpg",
+                "categoryID": 181076,
+                "updateDate": "2023-06-21 14:37:05",
+                "supplierAccount": "Queenie0320",
+                "supplierCompany": "0",
+                "totalInventory": 77,
+                "cid": 1402,
+                "saleTypeIds": "1",
+                "SPU": "S10092556",
+                "SKUList": [
+                    {
+                        "randomSKU": "w12537028",
+                        "supplyInventory": 19,
+                        "rebate": 1.00,
+                        "supplyPrice": 444.00,
+                        "settlePrice": 444.00,
+                        "minRetailPrice": 0.00,
+                        "retailPriceCode": null,
+                        "privateInventory": 0,
+                        "wholesalePrice": 1.00,
+                        "warehouseName": "万邑通AU仓澳洲",
+                        "warehouseCode": "EWD",
+                        "freeShip": "N",
+                        "weight": 0.170,
+                        "length": 22.00,
+                        "width": 14.00,
+                        "height": 3.50,
+                        "SKU": "AUJJ037"
+                    },
+                    {
+                        "randomSKU": "w12537032",
+                        "supplyInventory": 24,
+                        "rebate": 1.00,
+                        "supplyPrice": 444.00,
+                        "settlePrice": 444.00,
+                        "minRetailPrice": 0.00,
+                        "retailPriceCode": null,
+                        "privateInventory": 0,
+                        "wholesalePrice": 1.00,
+                        "warehouseName": "万邑通AU仓澳洲",
+                        "warehouseCode": "EWD",
+                        "freeShip": "N",
+                        "weight": 0.315,
+                        "length": 21.00,
+                        "width": 16.00,
+                        "height": 6.00,
+                        "SKU": "AUJJ044"
+                    }
+                ]
+            }
+        ]
+    }
+}
+
