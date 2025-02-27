@@ -50,7 +50,7 @@ def create_checkout_session():
     for item in cart_items:
         line_items.append({
             'price_data': {
-                'currency': 'usd',  # You might want to make this dynamic based on the warehouse location
+                'currency': 'usd',
                 'product_data': {
                     'name': item.title,
                     'images': [item.thumbnail] if item.thumbnail else [],
@@ -60,15 +60,20 @@ def create_checkout_session():
             'quantity': item.quantity,
         })
 
+    # Build absolute URLs for success and cancel endpoints
+    domain_url = current_app.config.get('DOMAIN_URL') or request.host_url.rstrip('/')
+    success_url = f"{domain_url}{url_for('checkout.success')}?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{domain_url}{url_for('checkout.cancel')}"
+
     try:
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=line_items,
             mode='payment',
-            success_url=current_app.config['DOMAIN_URL'] + url_for('checkout.success') + '?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=current_app.config['DOMAIN_URL'] + url_for('checkout.cancel'),
+            success_url=success_url,
+            cancel_url=cancel_url,
             shipping_address_collection={
-                'allowed_countries': ['US', 'GB', 'AU'],  # Add countries based on your warehouses
+                'allowed_countries': ['US', 'GB', 'AU'],
             },
             metadata={
                 'cart_session_id': session['session_id']
