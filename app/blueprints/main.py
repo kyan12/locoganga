@@ -1,44 +1,7 @@
 from flask import Blueprint, render_template, current_app, request
-import requests
-import hashlib
-from datetime import datetime
-import json
+from ..services.winit_api import WinitAPI
 
 bp = Blueprint('main', __name__)
-
-# config.py
-class Config:
-    API_CONFIG = {
-        'base_url': 'https://openapi.wanyilian.com/cedpopenapi/service',
-        'app_key': 'your_username',  # Replace with your username
-        'token': 'b309954f-7656-4948-937f-9f4978f35caa',  # This is their example token, use yours
-        'platform': 'cavendish'  # They're using this platform code
-    }
-
-def generate_sign(params):
-    """Generate API signature matching the JavaScript implementation"""
-    TOKEN = 'b309954f-7656-4948-937f-9f4978f35caa'
-    
-    # Create clean params copy
-    param_copy = {k: v for k, v in params.items() if k not in ['sign', 'language']}
-    
-    # Build signature string starting with token
-    sign_string = TOKEN
-    
-    # Sort and concatenate parameters
-    for key in sorted(param_copy.keys()):
-        value = param_copy[key]
-        if key == 'data':
-            # Ensure consistent JSON serialization
-            sign_string += key + json.dumps(value, separators=(',', ':'))
-        else:
-            sign_string += key + str(value)
-            
-    # Add token at end
-    sign_string += TOKEN
-    
-    # Generate MD5 hash and convert to uppercase
-    return hashlib.md5(sign_string.encode('utf-8')).hexdigest().upper()
 
 @bp.route('/')
 def index():
@@ -49,31 +12,17 @@ def index():
     total_in_stock_count = 0
     first_page = True
 
-    while len(in_stock_products) < (requested_page * items_per_page):
-        params = {
-            'action': 'wanyilian.supplier.spu.getProductBaseList',
-            'app_key': current_app.config['API_CONFIG']['app_key'],
-            'data': {
-                'pageParams': {
-                    'pageNo': current_api_page,
-                    'pageSize': 50,  # Request more items per API call to reduce number of calls
-                    'totalCount': 0
-                },
-                'warehouseCode': 'UKGF'
-            },
-            'format': 'json',
-            'language': 'zh_CN',
-            'platform': current_app.config['API_CONFIG']['platform'],
-            'sign_method': 'md5',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'version': '1.0'
-        }
+    # Initialize WinitAPI service
+    winit_api = WinitAPI.from_app(current_app)
 
-        params['sign'] = generate_sign(params)
-        
+    while len(in_stock_products) < (requested_page * items_per_page):
         try:
-            response = requests.post(current_app.config['API_CONFIG']['base_url'], json=params)
-            response_data = response.json()
+            # Get products from Winit API
+            response_data = winit_api.get_product_base_list(
+                warehouse_code='UKGF',
+                page_no=current_api_page,
+                page_size=50
+            )
             
             if response_data.get('code') != '0':
                 error_message = f"API Error: {response_data.get('msg')} (Code: {response_data.get('code')})"

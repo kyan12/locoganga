@@ -31,6 +31,8 @@ def create_app(config_class=Config):
     from .blueprints.cart import bp as cart_bp
     app.register_blueprint(cart_bp, url_prefix='/cart')
 
+    from .blueprints.checkout import bp as checkout_bp
+    app.register_blueprint(checkout_bp, url_prefix='/checkout')
 
     if not app.debug and not app.testing:
         if not os.path.exists(app.config['LOG_DIR']):

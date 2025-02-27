@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Checkout{% endblock %}
+{% block content %}
+<div class="container mx-auto py-8">
+    <h1 class="text-2xl font-bold mb-4">Checkout</h1>
+    <!-- Cart Summary Section -->
+    <div class="mb-6">
+        <h2 class="text-xl font-bold mb-2">Your Cart</h2>
+        <ul class="list-disc pl-5">
+            {% for item in cart_items %}
+            <li>
+                <span class="font-medium">{{ item.title }}</span> - Quantity: {{ item.quantity }}{% if item.price %} - Price: ${{ "%.2f"|format(item.price) }}{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <form action="{{ url_for('checkout.process_checkout') }}" method="POST" class="space-y-4">
+        <div>
+            <label for="recipient_name" class="block font-medium">Recipient Name</label>
+            <input type="text" name="recipient_name" id="recipient_name" class="w-full border rounded px-3 py-2" required>
+        </div>
+        <div>
+            <label for="phone_num" class="block font-medium">Phone Number</label>
+            <input type="text" name="phone_num" id="phone_num" class="w-full border rounded px-3 py-2" required>
+        </div>
+        <div>
+            <label for="email_address" class="block font-medium">Email Address</label>
+            <input type="email" name="email_address" id="email_address" class="w-full border rounded px-3 py-2" required>
+        </div>
+        <div>
+            <label for="address1" class="block font-medium">Address Line 1</label>
+            <input type="text" name="address1" id="address1" class="w-full border rounded px-3 py-2" required>
+        </div>
+        <div>
+            <label for="address2" class="block font-medium">Address Line 2</label>
+            <input type="text" name="address2" id="address2" class="w-full border rounded px-3 py-2">
+        </div>
+        <div>
+            <label for="city" class="block font-medium">City</label>
+            <input type="text" name="city" id="city" class="w-full border rounded px-3 py-2" required>
+        </div>
+        <div>
+            <label for="region" class="block font-medium">Region</label>
+            <input type="text" name="region" id="region" class="w-full border rounded px-3 py-2">
+        </div>
+        <div>
+            <label for="state" class="block font-medium">State</label>
+            <input type="text" name="state" id="state" class="w-full border rounded px-3 py-2" required>
+        </div>
+        <div>
+            <label for="zip_code" class="block font-medium">Zip Code</label>
+            <input type="text" name="zip_code" id="zip_code" class="w-full border rounded px-3 py-2" required>
+        </div>
+        <div>
+            <label for="doorplate" class="block font-medium">Doorplate Numbers</label>
+            <input type="text" name="doorplate" id="doorplate" class="w-full border rounded px-3 py-2">
+        </div>
+        <div>
+            <label for="delivery_method" class="block font-medium">Delivery Method</label>
+            <select name="delivery_method" id="delivery_method" class="w-full border rounded px-3 py-2" required>
+                {% for method in delivery_methods %}
+                <option value="{{ method.winitProductCode }}">{{ method.deliveryWay }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="text-right">
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Place Order</button>
+        </div>
+    </form>
+</div>
+{% endblock %} 

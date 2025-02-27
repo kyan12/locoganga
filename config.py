@@ -22,9 +22,14 @@ class Config(object):
     ROOT_DIRECTORY = os.path.dirname(__file__)
 
     LOG_DIR = os.path.join(ROOT_DIRECTORY, 'logs')
-    API_CONFIG = {
-        'base_url': 'https://openapi.wanyilian.com/cedpopenapi/service',
-        'app_key': os.environ.get('WANYILIAN_APP_KEY', 'your_app_key'),
-        'token': os.environ.get('WANYILIAN_TOKEN', 'your_token'),
-        'platform': 'OWNERERP'
-    }
+
+    # Stripe configuration
+    STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
+    STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
+    STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
+    DOMAIN_URL = os.environ.get('DOMAIN_URL', 'http://localhost:5000')
+
+    # Winit API configuration
+    WINIT_API_URL = os.environ.get('WINIT_API_URL', 'https://openapi.wanyilian.com/cedpopenapi/service')
+    WINIT_APP_KEY = os.environ.get('WINIT_APP_KEY')
+    WINIT_TOKEN = os.environ.get('WINIT_TOKEN')

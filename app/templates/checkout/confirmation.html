@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Order Confirmation{% endblock %}
+{% block content %}
+<div class="container mx-auto py-8">
+    <h1 class="text-2xl font-bold mb-4">Order Confirmation</h1>
+    <p class="mb-4">Thank you for your order! Your seller order number is: <strong>{{ seller_order_no }}</strong>.</p>
+    {% if order_nums %}
+    <ul class="list-disc pl-5">
+        {% for order in order_nums %}
+            <li>Order Number: {{ order.orderNo if order.orderNo is defined else order }}</li>
+        {% endfor %}
+    </ul>
+    {% else %}
+        <p>No order numbers received.</p>
+    {% endif %}
+    <a href="{{ url_for('main.index') }}" class="mt-4 inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Continue Shopping
+    </a>
+</div>
+{% endblock %} 

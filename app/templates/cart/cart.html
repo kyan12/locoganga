@@ -1,6 +1,10 @@
 <!-- templates/cart/cart.html -->
 {% extends "base.html" %}
 
+{% block extra_head %}
+<script src="https://js.stripe.com/v3/"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-8">
@@ -62,10 +66,8 @@
                 </tfoot>
             </table>
 
-            <div class="mt-8 flex justify-end">
-                <button 
-                    onclick="alert('Checkout functionality coming soon!')"
-                    class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition">
+            <div class="text-right mt-4">
+                <button id="checkout-button" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
                     Proceed to Checkout
                 </button>
             </div>
@@ -91,5 +93,38 @@ function updateQuantity(sku, change) {
         })
     }).then(() => window.location.reload());
 }
+
+// Stripe checkout
+const stripe = Stripe('{{ config.STRIPE_PUBLISHABLE_KEY }}');
+const checkoutButton = document.getElementById('checkout-button');
+
+checkoutButton.addEventListener('click', function() {
+    // Create a new Checkout Session
+    fetch('/checkout/create-checkout-session', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(session) {
+        if (session.error) {
+            alert(session.error);
+            return;
+        }
+        return stripe.redirectToCheckout({ sessionId: session.id });
+    })
+    .then(function(result) {
+        if (result.error) {
+            alert(result.error.message);
+        }
+    })
+    .catch(function(error) {
+        console.error('Error:', error);
+        alert('There was an error processing your checkout. Please try again.');
+    });
+});
 </script>
 {% endblock %}
