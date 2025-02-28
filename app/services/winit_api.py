@@ -3,6 +3,8 @@ import json
 from datetime import datetime
 import requests
 from flask import current_app
+import socket
+from urllib.parse import urlparse
 
 class WinitAPI:
     """Service class for interacting with the Winit API"""
@@ -45,8 +47,22 @@ class WinitAPI:
         # Generate MD5 hash and convert to uppercase
         return hashlib.md5(sign_string.encode('utf-8')).hexdigest().upper()
 
-    def _make_request(self, action, data=None):
-        """Make a request to the Winit API"""
+    def _make_request(self, action, data=None, timeout=30):
+        """Make a request to the Winit API
+        
+        Args:
+            action: The API action to call
+            data: The data to send with the request
+            timeout: Request timeout in seconds (default: 30)
+            
+        Returns:
+            The JSON response from the API
+            
+        Raises:
+            ConnectionError: If the connection fails
+            Timeout: If the request times out
+            HTTPError: If the API returns an error status code
+        """
         params = {
             'action': action,
             'app_key': self.app_key,
@@ -62,11 +78,21 @@ class WinitAPI:
         params['sign'] = self._generate_sign(params)
         
         try:
-            response = requests.post(self.base_url, json=params)
+            current_app.logger.info(f"Making Winit API request to {self.base_url} for action {action}")
+            response = requests.post(self.base_url, json=params, timeout=timeout)
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.Timeout:
+            current_app.logger.error(f"Timeout connecting to Winit API for action {action}")
+            raise
+        except requests.exceptions.ConnectionError as e:
+            current_app.logger.error(f"Connection error to Winit API for action {action}: {e}")
+            raise
+        except requests.exceptions.HTTPError as e:
+            current_app.logger.error(f"HTTP error from Winit API for action {action}: {e}")
+            raise
         except Exception as e:
-            current_app.logger.error(f"Error making Winit API request: {e}")
+            current_app.logger.error(f"Error making Winit API request for action {action}: {e}")
             raise
 
     def get_product_base_list(self, warehouse_code=None, page_no=1, page_size=50):
@@ -137,4 +163,71 @@ class WinitAPI:
 
     def get_sale_types(self):
         """Get product sale types"""
-        return self._make_request('wanyilian.supplier.spu.getSaleTypeList') 
+        return self._make_request('wanyilian.supplier.spu.getSaleTypeList')
+
+    def test_connectivity(self, timeout=5):
+        """Test connectivity to the Winit API server
+        
+        Args:
+            timeout: Connection timeout in seconds (default: 5)
+            
+        Returns:
+            dict: A dictionary with connectivity test results
+        """
+        results = {
+            'success': False,
+            'url': self.base_url,
+            'errors': []
+        }
+        
+        # Parse the URL to get the hostname
+        parsed_url = urlparse(self.base_url)
+        hostname = parsed_url.netloc
+        
+        # Test DNS resolution
+        try:
+            ip_address = socket.gethostbyname(hostname)
+            results['ip_address'] = ip_address
+            results['dns_resolution'] = True
+        except socket.gaierror as e:
+            results['dns_resolution'] = False
+            results['errors'].append(f"DNS resolution failed: {e}")
+            return results
+        
+        # Test TCP connection
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        
+        try:
+            port = 443 if parsed_url.scheme == 'https' else 80
+            s.connect((hostname, port))
+            results['tcp_connection'] = True
+        except socket.timeout:
+            results['tcp_connection'] = False
+            results['errors'].append(f"TCP connection timed out after {timeout} seconds")
+        except socket.error as e:
+            results['tcp_connection'] = False
+            results['errors'].append(f"TCP connection failed: {e}")
+        finally:
+            s.close()
+        
+        # Test HTTP connection
+        if results.get('tcp_connection', False):
+            try:
+                response = requests.get(
+                    f"{parsed_url.scheme}://{hostname}", 
+                    timeout=timeout
+                )
+                results['http_status'] = response.status_code
+                results['http_connection'] = True
+            except requests.exceptions.RequestException as e:
+                results['http_connection'] = False
+                results['errors'].append(f"HTTP connection failed: {e}")
+        
+        results['success'] = (
+            results.get('dns_resolution', False) and 
+            results.get('tcp_connection', False) and 
+            results.get('http_connection', False)
+        )
+        
+        return results 
