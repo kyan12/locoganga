@@ -1,6 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, jsonify
 from datetime import datetime
 import stripe
+import time
+import requests
+from requests.exceptions import RequestException
 from ..models import CartItem, db
 from ..services.winit_api import WinitAPI
 from ..services.email_service import EmailService
@@ -29,7 +32,15 @@ def checkout_page():
         current_app.logger.error('Error fetching delivery methods: ' + str(e))
         delivery_methods = []
 
-    return render_template('checkout/checkout.html', cart_items=cart_items, delivery_methods=delivery_methods)
+    # Get publishable key for rendering
+    stripe_publishable_key = current_app.config.get('STRIPE_PUBLISHABLE_KEY', '')
+    if not stripe_publishable_key:
+        current_app.logger.warning("STRIPE_PUBLISHABLE_KEY is not set")
+
+    return render_template('checkout/checkout.html', 
+                           cart_items=cart_items, 
+                           delivery_methods=delivery_methods,
+                           stripe_key=stripe_publishable_key)
 
 @bp.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
@@ -41,9 +52,17 @@ def create_checkout_session():
         return jsonify({'error': 'Cart is empty'}), 400
 
     try:
-        stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
-        if not stripe.api_key:
-            raise ValueError('Stripe API key is not configured')
+        # Load API key and validate it
+        stripe_secret_key = current_app.config.get('STRIPE_SECRET_KEY')
+        if not stripe_secret_key:
+            current_app.logger.error("STRIPE_SECRET_KEY is not set")
+            return jsonify({'error': 'Payment service is not configured'}), 500
+
+        # Set Stripe API key
+        stripe.api_key = stripe_secret_key
+        
+        # Log the API key length (don't log the actual key for security)
+        current_app.logger.info(f"Using Stripe API key (length: {len(stripe_secret_key)})")
 
         # Store shipping info in session if provided
         shipping_data = request.form.to_dict() if request.form else {}
@@ -69,32 +88,93 @@ def create_checkout_session():
             })
 
         # Build absolute URLs for success and cancel endpoints
-        domain_url = current_app.config.get('DOMAIN_URL') or request.host_url.rstrip('/')
-        success_url = f"{domain_url}{url_for('checkout.success')}?session_id={{CHECKOUT_SESSION_ID}}"
-        cancel_url = f"{domain_url}{url_for('checkout.cancel')}"
-
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=line_items,
-            mode='payment',
-            success_url=success_url,
-            cancel_url=cancel_url,
-            shipping_address_collection={
+        # Fix URL construction to ensure valid URLs
+        server_name = current_app.config.get('SERVER_NAME')
+        scheme = current_app.config.get('PREFERRED_URL_SCHEME', 'https')
+        
+        # Log server configuration for debugging
+        current_app.logger.info(f"Server name config: {server_name}")
+        current_app.logger.info(f"URL scheme: {scheme}")
+        
+        if server_name:
+            # Use configured server name
+            base_url = f"{scheme}://{server_name}"
+            current_app.logger.info(f"Using configured base URL: {base_url}")
+        else:
+            # Fallback to request.host_url (but ensure it doesn't end with a slash)
+            base_url = request.host_url.rstrip('/')
+            current_app.logger.info(f"Using request host URL: {base_url}")
+        
+        # Generate absolute URLs with proper formatting for Stripe
+        success_path = url_for('checkout.success')
+        cancel_path = url_for('checkout.cancel')
+        
+        # Ensure paths start with slash
+        if not success_path.startswith('/'):
+            success_path = '/' + success_path
+        if not cancel_path.startswith('/'):
+            cancel_path = '/' + cancel_path
+            
+        success_url = f"{base_url}{success_path}?session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = f"{base_url}{cancel_path}"
+        
+        # Log the generated URLs
+        current_app.logger.info(f"Success URL template: {success_url}")
+        current_app.logger.info(f"Cancel URL: {cancel_url}")
+        
+        # Prepare checkout session parameters
+        checkout_params = {
+            'payment_method_types': ['card'],
+            'line_items': line_items,
+            'mode': 'payment',
+            'success_url': success_url,
+            'cancel_url': cancel_url,
+            'shipping_address_collection': {
                 'allowed_countries': ['US', 'GB', 'AU'],
             },
-            metadata={
+            'metadata': {
                 'cart_session_id': session['session_id']
             }
-        )
-        return jsonify({'id': checkout_session.id})
+        }
+        
+        # Log attempt to create session
+        current_app.logger.info(f"Attempting to create Stripe checkout session")
+        
+        # Create checkout session with retry mechanism
+        max_retries = 3
+        retry_delay = 1  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                checkout_session = stripe.checkout.Session.create(**checkout_params)
+                current_app.logger.info(f"Stripe checkout session created successfully: {checkout_session.id}")
+                return jsonify({'id': checkout_session.id})
+            except (stripe.error.APIConnectionError, requests.exceptions.RequestException) as e:
+                # Network-related errors - may be worth retrying
+                current_app.logger.warning(f"Network error on attempt {attempt+1}/{max_retries}: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    current_app.logger.error(f"Failed to connect to Stripe API after {max_retries} attempts")
+                    return jsonify({'error': 'Cannot connect to payment service. Please try again later.'}), 503
+            except stripe.error.StripeError as e:
+                # Other Stripe errors - log details and don't retry
+                current_app.logger.error(f"Stripe error: {str(e)}")
+                error_msg = 'Payment processing error. Please try again later.'
+                # Provide more specific messages for common errors
+                if isinstance(e, stripe.error.CardError):
+                    error_msg = 'Your card was declined. Please try another payment method.'
+                elif isinstance(e, stripe.error.InvalidRequestError):
+                    error_msg = 'Invalid request to payment processor. Please contact support.'
+                return jsonify({'error': error_msg}), 503
+                
     except ValueError as e:
         current_app.logger.error(f'Validation error in checkout: {str(e)}')
         return jsonify({'error': str(e)}), 400
-    except stripe.error.StripeError as e:
-        current_app.logger.error(f'Stripe error: {str(e)}')
-        return jsonify({'error': 'Payment processing error. Please try again later.'}), 503
     except Exception as e:
         current_app.logger.error(f'Unexpected error in checkout: {str(e)}')
+        current_app.logger.exception("Detailed traceback:")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.'}), 500
 
 @bp.route('/success')
