@@ -122,25 +122,55 @@
     </div>
     {% endfor %}
 </div>
-    <!-- Pagination -->
-    <div class="mt-8 flex justify-center space-x-4">
-        {% if pagination.page > 1 %}
-        <a href="?page={{ pagination.page - 1 }}" 
-           class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
-            Previous
-        </a>
-        {% endif %}
-        
-        <span class="px-4 py-2 text-gray-700">
-            Page {{ pagination.page }} of {{ pagination.total_pages }}
-        </span>
-        
-        {% if pagination.page < pagination.total_pages %}
-        <a href="?page={{ pagination.page + 1 }}" 
-           class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
-            Next
-        </a>
-        {% endif %}
-    </div>
+
+<!-- Pagination -->
+{% if pagination.total_pages > 1 %}
+<div class="flex justify-center items-center space-x-2 my-8">
+    {% if pagination.page > 1 %}
+    <a href="{{ url_for('main.index', page=pagination.page-1) }}"
+       class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
+        Previous
+    </a>
+    {% endif %}
+
+    {% set start = [pagination.page - 2, 1]|max %}
+    {% set end = [start + 4, pagination.total_pages]|min %}
+    {% set start = [end - 4, 1]|max %}
+
+    {% if start > 1 %}
+    <a href="{{ url_for('main.index', page=1) }}"
+       class="px-4 py-2 {% if pagination.page == 1 %}bg-blue-500 text-white{% else %}bg-gray-200 text-gray-700{% endif %} rounded hover:bg-blue-600 transition">
+        1
+    </a>
+    {% if start > 2 %}
+    <span class="px-2">...</span>
+    {% endif %}
+    {% endif %}
+
+    {% for p in range(start, end + 1) %}
+    <a href="{{ url_for('main.index', page=p) }}"
+       class="px-4 py-2 {% if pagination.page == p %}bg-blue-500 text-white{% else %}bg-gray-200 text-gray-700{% endif %} rounded hover:bg-blue-600 transition">
+        {{ p }}
+    </a>
+    {% endfor %}
+
+    {% if end < pagination.total_pages %}
+    {% if end < pagination.total_pages - 1 %}
+    <span class="px-2">...</span>
+    {% endif %}
+    <a href="{{ url_for('main.index', page=pagination.total_pages) }}"
+       class="px-4 py-2 {% if pagination.page == pagination.total_pages %}bg-blue-500 text-white{% else %}bg-gray-200 text-gray-700{% endif %} rounded hover:bg-blue-600 transition">
+        {{ pagination.total_pages }}
+    </a>
+    {% endif %}
+
+    {% if pagination.page < pagination.total_pages %}
+    <a href="{{ url_for('main.index', page=pagination.page+1) }}"
+       class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
+        Next
+    </a>
+    {% endif %}
+</div>
+{% endif %}
 </div>
 {% endblock %}

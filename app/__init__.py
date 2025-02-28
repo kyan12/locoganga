@@ -12,6 +12,7 @@ from flask_migrate import Migrate
 from flask_bootstrap import Bootstrap
 from config import Config
 from flask_user.signals import user_sent_invitation, user_registered
+from .services.cache_service import init_cache
 
 
 db = SQLAlchemy()
@@ -23,7 +24,13 @@ def create_app(config_class=Config):
     app.config.from_object(Config)
 
     db.init_app(app)
-    migrate.init_app(app, db)
+    migrate.init_app(app)
+    bootstrap.init_app(app)
+    init_cache(app)
+
+    # Import and initialize EmailService here to avoid circular imports
+    from .services.email_service import EmailService
+    email_service = EmailService(app)
 
     from .blueprints.main import bp as main_bp
     app.register_blueprint(main_bp)
@@ -44,4 +51,5 @@ def create_app(config_class=Config):
         app.logger.addHandler(file_handler)
         app.logger.setLevel(logging.INFO)
         app.logger.debug('Locoganga startup')
+
     return app

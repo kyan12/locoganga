@@ -4,6 +4,7 @@ Config file for app
 import os
 import sys
 from dotenv import load_dotenv
+from datetime import timedelta
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
@@ -33,3 +34,20 @@ class Config(object):
     WINIT_API_URL = os.environ.get('WINIT_API_URL', 'https://openapi.wanyilian.com/cedpopenapi/service')
     WINIT_APP_KEY = os.environ.get('WINIT_APP_KEY')
     WINIT_TOKEN = os.environ.get('WINIT_TOKEN')
+
+    # Mail configuration
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
+
+    # Cache configuration
+    CACHE_TYPE = os.environ.get('CACHE_TYPE', 'redis')
+    CACHE_REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_TIMEOUT', 300))  # 5 minutes default
+    
+    # Product cache settings
+    PRODUCT_CACHE_TIMEOUT = int(os.environ.get('PRODUCT_CACHE_TIMEOUT', 3600))  # 1 hour
+    PRODUCT_PAGE_SIZE = int(os.environ.get('PRODUCT_PAGE_SIZE', 20))  # Products per page

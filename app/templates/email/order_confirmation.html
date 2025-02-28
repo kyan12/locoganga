@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .order-details {
+            margin: 20px 0;
+        }
+        .item {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .total {
+            margin-top: 20px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Order Confirmation</h1>
+            <p>Thank you for your order!</p>
+        </div>
+        
+        <div class="order-details">
+            <h2>Order Details</h2>
+            <p>Order Number: {{ order_number }}</p>
+            <p>Date: {{ order_date }}</p>
+            
+            <h3>Items Ordered:</h3>
+            {% for item in items %}
+            <div class="item">
+                <p><strong>{{ item.title }}</strong></p>
+                <p>Quantity: {{ item.quantity }}</p>
+                <p>Price: ${{ "%.2f"|format(item.price) }}</p>
+                <p>Total: ${{ "%.2f"|format(item.price * item.quantity) }}</p>
+            </div>
+            {% endfor %}
+            
+            <div class="total">
+                <p>Total Amount: ${{ "%.2f"|format(total) }}</p>
+            </div>
+        </div>
+
+        <div class="shipping-details">
+            <h3>Shipping Details:</h3>
+            <p>{{ shipping_details.name }}</p>
+            <p>{{ shipping_details.address.line1 }}</p>
+            {% if shipping_details.address.line2 %}
+            <p>{{ shipping_details.address.line2 }}</p>
+            {% endif %}
+            <p>{{ shipping_details.address.city }}, {{ shipping_details.address.state }} {{ shipping_details.address.postal_code }}</p>
+            <p>{{ shipping_details.address.country }}</p>
+        </div>
+
+        <div class="footer">
+            <p>If you have any questions about your order, please contact our customer service.</p>
+            <p>Thank you for shopping with us!</p>
+        </div>
+    </div>
+</body>
+</html> 

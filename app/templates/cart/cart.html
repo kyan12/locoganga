@@ -99,31 +99,44 @@ const stripe = Stripe('{{ config.STRIPE_PUBLISHABLE_KEY }}');
 const checkoutButton = document.getElementById('checkout-button');
 
 checkoutButton.addEventListener('click', function() {
+    // Disable the button to prevent multiple clicks
+    checkoutButton.disabled = true;
+    checkoutButton.textContent = 'Processing...';
+
     // Create a new Checkout Session
     fetch('/checkout/create-checkout-session', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-        }
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({}) // Send empty object to maintain JSON format
     })
     .then(function(response) {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return response.json();
     })
     .then(function(session) {
         if (session.error) {
-            alert(session.error);
-            return;
+            throw new Error(session.error);
         }
         return stripe.redirectToCheckout({ sessionId: session.id });
     })
     .then(function(result) {
-        if (result.error) {
-            alert(result.error.message);
+        if (result && result.error) {
+            throw new Error(result.error.message);
         }
     })
     .catch(function(error) {
         console.error('Error:', error);
-        alert('There was an error processing your checkout. Please try again.');
+        alert('Payment processing error: ' + error.message);
+    })
+    .finally(function() {
+        // Re-enable the button
+        checkoutButton.disabled = false;
+        checkoutButton.textContent = 'Proceed to Checkout';
     });
 });
 </script>
