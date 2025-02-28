@@ -4,15 +4,17 @@
 
 echo "Fixing Flask version compatibility issues..."
 
-# Deactivate virtual environment if active
-if [[ -n "$VIRTUAL_ENV" ]]; then
-    echo "Deactivating current virtual environment..."
-    deactivate
-fi
-
 # Create a backup of the current environment
 echo "Creating backup of current packages..."
 pip freeze > requirements.backup.txt
+
+# Uninstall conflicting packages
+echo "Uninstalling flask-session which requires newer Flask..."
+pip uninstall -y flask-session
+
+# Uninstall Redis-related packages
+echo "Uninstalling Redis-related packages..."
+pip uninstall -y flask-caching redis
 
 # Install compatible versions
 echo "Installing compatible versions of Flask and extensions..."

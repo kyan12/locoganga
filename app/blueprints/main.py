@@ -1,6 +1,5 @@
 from flask import Blueprint, render_template, current_app, request
 from ..services.winit_api import WinitAPI
-from ..services.cache_service import get_cached_products, cache_products, get_cached_product_count, cache_product_count
 
 bp = Blueprint('main', __name__)
 
@@ -8,17 +7,6 @@ bp = Blueprint('main', __name__)
 def index():
     requested_page = request.args.get('page', 1, type=int)
     items_per_page = current_app.config.get('PRODUCT_PAGE_SIZE', 20)
-    
-    # Try to get products from cache first
-    cached_products = get_cached_products(requested_page)
-    cached_count = get_cached_product_count()
-    
-    if cached_products is not None and cached_count is not None:
-        current_app.logger.info(f"Serving products for page {requested_page} from cache")
-        total_pages = (cached_count + items_per_page - 1) // items_per_page
-        return render_template('main/index.html', 
-                             products=cached_products,
-                             pagination={'page': requested_page, 'total_pages': total_pages})
     
     # Initialize WinitAPI service
     try:
@@ -84,9 +72,6 @@ def index():
         in_stock_ratio = len(in_stock_products) / max(len(all_products), 1)  # Avoid division by zero
         total_in_stock_count = int(total_api_count * in_stock_ratio)
         
-        # Cache the total count
-        cache_product_count(total_in_stock_count)
-        
         # Calculate total pages
         total_pages = max((total_in_stock_count + items_per_page - 1) // items_per_page, 1)  # At least 1 page
         
@@ -116,10 +101,6 @@ def index():
         start_idx = offset
         end_idx = min(start_idx + items_per_page, len(in_stock_products))
         page_products = in_stock_products[start_idx:end_idx] if start_idx < len(in_stock_products) else []
-        
-        # Cache the products for this page
-        if page_products:
-            cache_products(requested_page, page_products)
         
         return render_template('main/index.html', 
                              products=page_products,
