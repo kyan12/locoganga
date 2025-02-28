@@ -28,7 +28,7 @@ class Config(object):
     STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
     STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
     STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
-    DOMAIN_URL = os.environ.get('DOMAIN_URL', 'http://localhost:5000')
+    DOMAIN_URL = os.environ.get('SERVER_NAME', 'http://localhost:5000')
 
     # Winit API configuration
     WINIT_API_URL = os.environ.get('WINIT_API_URL', 'https://openapi.wanyilian.com/cedpopenapi/service')
