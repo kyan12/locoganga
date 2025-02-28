@@ -45,6 +45,12 @@
     </div>
     {% endif %}
 
+    {% if request.args.get('source') == 'fallback' %}
+    <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4" role="alert">
+        <p>⚠️ Notice: Using cached product data. Some information may not be current.</p>
+    </div>
+    {% endif %}
+
    <!-- Products Grid -->
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
     {% for product in products %}
