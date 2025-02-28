@@ -12,7 +12,7 @@ from flask_migrate import Migrate
 from flask_bootstrap import Bootstrap
 from config import Config
 from flask_user.signals import user_sent_invitation, user_registered
-from .services.cache_service import init_cache
+from .services.cache_service import init_cache, preload_popular_pages
 
 
 db = SQLAlchemy()
@@ -51,5 +51,11 @@ def create_app(config_class=Config):
         app.logger.addHandler(file_handler)
         app.logger.setLevel(logging.INFO)
         app.logger.debug('Locoganga startup')
+    
+    # Preload popular pages into cache
+    @app.before_first_request
+    def preload_cache():
+        app.logger.info("Starting cache preloading")
+        preload_popular_pages(app, pages=[1, 2, 3, 4, 5])
 
     return app

@@ -46,8 +46,15 @@ class Config(object):
     # Cache configuration
     CACHE_TYPE = os.environ.get('CACHE_TYPE', 'redis')
     CACHE_REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-    CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_TIMEOUT', 300))  # 5 minutes default
+    CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_TIMEOUT', 300))
     
     # Product cache settings
     PRODUCT_CACHE_TIMEOUT = int(os.environ.get('PRODUCT_CACHE_TIMEOUT', 3600))  # 1 hour
     PRODUCT_PAGE_SIZE = int(os.environ.get('PRODUCT_PAGE_SIZE', 20))  # Products per page
+    
+    # Additional cache settings for performance
+    CACHE_OPTIONS = {
+        'CACHE_REDIS_SOCKET_TIMEOUT': 10,
+        'CACHE_REDIS_SOCKET_CONNECT_TIMEOUT': 10,
+        'CACHE_THRESHOLD': 500  # Maximum number of items the cache will store
+    }

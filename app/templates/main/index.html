@@ -49,11 +49,12 @@
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
     {% for product in products %}
     <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-        <!-- Product Image -->
+        <!-- Product Image with Lazy Loading -->
         <div class="relative pt-[100%]">  <!-- This creates a square aspect ratio -->
-            <img src="{{ product.thumbnail }}" 
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f3f4f6'/%3E%3C/svg%3E" 
+                 data-src="{{ product.thumbnail }}" 
                  alt="{{ product.title }}" 
-                 class="absolute top-0 left-0 w-full h-full object-cover"
+                 class="absolute top-0 left-0 w-full h-full object-cover lazy-load"
                  onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
             
             <!-- Stock Status Badge -->
@@ -173,4 +174,64 @@
 </div>
 {% endif %}
 </div>
+
+<!-- Add this script at the end of the content block -->
+<script>
+    // Lazy loading for images
+    document.addEventListener('DOMContentLoaded', function() {
+        let lazyImages = [].slice.call(document.querySelectorAll('img.lazy-load'));
+        
+        if ('IntersectionObserver' in window) {
+            let lazyImageObserver = new IntersectionObserver(function(entries, observer) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        let lazyImage = entry.target;
+                        lazyImage.src = lazyImage.dataset.src;
+                        lazyImage.classList.remove('lazy-load');
+                        lazyImageObserver.unobserve(lazyImage);
+                    }
+                });
+            });
+            
+            lazyImages.forEach(function(lazyImage) {
+                lazyImageObserver.observe(lazyImage);
+            });
+        } else {
+            // Fallback for browsers that don't support IntersectionObserver
+            let active = false;
+            
+            const lazyLoad = function() {
+                if (active === false) {
+                    active = true;
+                    
+                    setTimeout(function() {
+                        lazyImages.forEach(function(lazyImage) {
+                            if ((lazyImage.getBoundingClientRect().top <= window.innerHeight && lazyImage.getBoundingClientRect().bottom >= 0) && getComputedStyle(lazyImage).display !== 'none') {
+                                lazyImage.src = lazyImage.dataset.src;
+                                lazyImage.classList.remove('lazy-load');
+                                
+                                lazyImages = lazyImages.filter(function(image) {
+                                    return image !== lazyImage;
+                                });
+                                
+                                if (lazyImages.length === 0) {
+                                    document.removeEventListener('scroll', lazyLoad);
+                                    window.removeEventListener('resize', lazyLoad);
+                                    window.removeEventListener('orientationchange', lazyLoad);
+                                }
+                            }
+                        });
+                        
+                        active = false;
+                    }, 200);
+                }
+            };
+            
+            document.addEventListener('scroll', lazyLoad);
+            window.addEventListener('resize', lazyLoad);
+            window.addEventListener('orientationchange', lazyLoad);
+            lazyLoad();
+        }
+    });
+</script>
 {% endblock %}
