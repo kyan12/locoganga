@@ -1,10 +1,14 @@
 import hashlib
 import json
+import logging
 from datetime import datetime
 import requests
-from flask import current_app
+from flask import current_app, has_app_context
 import socket
 from urllib.parse import urlparse
+
+# Configure logging
+logger = logging.getLogger('winit_api')
 
 class WinitAPI:
     """Service class for interacting with the Winit API"""
@@ -14,6 +18,7 @@ class WinitAPI:
         self.app_key = app_key
         self.token = token
         self.platform = platform
+        self.logger = logger
 
     @classmethod
     def from_app(cls, app):
@@ -78,21 +83,44 @@ class WinitAPI:
         params['sign'] = self._generate_sign(params)
         
         try:
-            current_app.logger.info(f"Making Winit API request to {self.base_url} for action {action}")
+            # Log the request - use Flask's logger if in app context, otherwise use standard logger
+            log_message = f"Making Winit API request to {self.base_url} for action {action}"
+            if has_app_context():
+                current_app.logger.info(log_message)
+            else:
+                self.logger.info(log_message)
+                
+            # Make the request with a longer timeout
             response = requests.post(self.base_url, json=params, timeout=timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.Timeout:
-            current_app.logger.error(f"Timeout connecting to Winit API for action {action}")
+            error_message = f"Timeout connecting to Winit API for action {action}"
+            if has_app_context():
+                current_app.logger.error(error_message)
+            else:
+                self.logger.error(error_message)
             raise
         except requests.exceptions.ConnectionError as e:
-            current_app.logger.error(f"Connection error to Winit API for action {action}: {e}")
+            error_message = f"Connection error to Winit API for action {action}: {e}"
+            if has_app_context():
+                current_app.logger.error(error_message)
+            else:
+                self.logger.error(error_message)
             raise
         except requests.exceptions.HTTPError as e:
-            current_app.logger.error(f"HTTP error from Winit API for action {action}: {e}")
+            error_message = f"HTTP error from Winit API for action {action}: {e}"
+            if has_app_context():
+                current_app.logger.error(error_message)
+            else:
+                self.logger.error(error_message)
             raise
         except Exception as e:
-            current_app.logger.error(f"Error making Winit API request for action {action}: {e}")
+            error_message = f"Error making Winit API request for action {action}: {e}"
+            if has_app_context():
+                current_app.logger.error(error_message)
+            else:
+                self.logger.error(error_message)
             raise
 
     def get_product_base_list(self, warehouse_code=None, page_no=1, page_size=50):
