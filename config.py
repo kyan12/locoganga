@@ -9,6 +9,15 @@ from datetime import timedelta
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
 
+def normalize_database_url(url):
+    if not url:
+        return url
+    if url.startswith('mysql+mysqldb://'):
+        return url.replace('mysql+mysqldb://', 'mysql+pymysql://', 1)
+    if url.startswith('mysql://'):
+        return url.replace('mysql://', 'mysql+pymysql://', 1)
+    return url
+
 class Config(object):
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
     USER_APP_NAME = "LOCOGANGA"
@@ -17,8 +26,8 @@ class Config(object):
     USER_REQUIRE_INVITATION = True
     USER_ENABLE_INVITE_USER = True
     CSRF_ENABLED = True
-    SERVER_NAME = os.environ.get('SERVER_NAME') or 'locoganga.com'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    SERVER_NAME = None if os.environ.get('VERCEL') else (os.environ.get('SERVER_NAME') or 'locoganga.com')
+    SQLALCHEMY_DATABASE_URI = normalize_database_url(os.environ.get('DATABASE_URL'))
     MAX_CONTENT_LENGTH = 64 * 1024 * 1024
     ROOT_DIRECTORY = os.path.dirname(__file__)
 

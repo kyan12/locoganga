@@ -38,7 +38,7 @@ def create_app(config_class=Config):
     from .blueprints.checkout import bp as checkout_bp
     app.register_blueprint(checkout_bp, url_prefix='/checkout')
 
-    if not app.debug and not app.testing:
+    if not app.debug and not app.testing and not os.environ.get('VERCEL'):
         if not os.path.exists(app.config['LOG_DIR']):
             os.mkdir(app.config['LOG_DIR'])
         file_handler = TimedRotatingFileHandler(app.config['LOG_DIR'] + '/locoganga.log', when='midnight', backupCount=30)
