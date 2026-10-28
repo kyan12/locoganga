@@ -81,6 +81,9 @@ class ProductService:
         if not has_app_context() and not self.app:
             return [], {'page': page, 'total_pages': 1}
         log = (current_app.logger if has_app_context() else self.app.logger)
+        cfg = (current_app if has_app_context() else self.app).config
+        if not cfg.get('WINIT_ENABLED'):
+            return self._process_fallback(page, items_per_page)
         
         try:
             # Try to fetch from API first with shorter timeout

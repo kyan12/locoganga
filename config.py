@@ -39,6 +39,9 @@ class Config(object):
     STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
     DOMAIN_URL = os.environ.get('SERVER_NAME', 'http://localhost:5000')
 
+    # Live Winit feed is off by default; the site serves the static catalog snapshot
+    WINIT_ENABLED = os.environ.get('WINIT_ENABLED', 'false').lower() == 'true'
+
     # Winit API configuration
     WINIT_API_URL = os.environ.get('WINIT_API_URL', 'https://openapi.wanyilian.com/cedpopenapi/service')
     WINIT_APP_KEY = os.environ.get('WINIT_APP_KEY')
