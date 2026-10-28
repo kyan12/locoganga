@@ -21,6 +21,15 @@ def create_app(config_class=Config):
     app = Flask(__name__, subdomain_matching=True)
     app.config.from_object(Config)
 
+    if not app.config.get('SECRET_KEY'):
+        raise RuntimeError('SECRET_KEY must be set in production')
+
+    @app.template_filter('retail')
+    def retail_price(supply):
+        import math
+        base = float(supply or 0) * app.config.get('PRICE_MARKUP', 1.0)
+        return max(math.ceil(base) - 0.01, 0.99)
+
     db.init_app(app)
     migrate.init_app(app)
     bootstrap.init_app(app)

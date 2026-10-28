@@ -166,3 +166,7 @@ cython_debug/
 .env.vercel*
 *.sqlite-journal
 .vercel
+
+# local databases
+*.db
+*.sqlite3

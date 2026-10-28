@@ -43,13 +43,13 @@
             <div class="p-4 flex flex-col flex-1">
                 <h3 class="text-sm font-medium text-slate-800 line-clamp-2 min-h-[2.5rem]" title="{{ product.title }}">{{ product.title }}</h3>
                 {% if sku %}
-                <div class="mt-2 text-xl font-bold text-brand">${{ "%.2f"|format(sku.supplyPrice) }}</div>
+                <div class="mt-2 text-xl font-bold text-brand">${{ "%.2f"|format(sku.supplyPrice|retail) }}</div>
                 {% endif %}
                 {% if sku and product.totalInventory > 0 %}
                 <div class="text-xs text-emerald-700 mt-1">In stock</div>
                 <button type="button" class="add-to-cart mt-3 w-full bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brand-dark transition"
                         data-sku="{{ sku.SKU }}" data-spu="{{ product.SPU }}" data-title="{{ product.title }}"
-                        data-price="{{ sku.supplyPrice }}" data-thumbnail="{{ product.thumbnail }}">Add to cart</button>
+                        data-price="{{ sku.supplyPrice|retail }}" data-thumbnail="{{ product.thumbnail }}">Add to cart</button>
                 {% else %}
                 <div class="text-xs text-slate-500 mt-1">Currently unavailable</div>
                 <button type="button" disabled class="mt-3 w-full bg-slate-200 text-slate-500 text-sm px-4 py-2 rounded-lg cursor-not-allowed">Unavailable</button>

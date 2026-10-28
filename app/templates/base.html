@@ -32,12 +32,23 @@
                 <a href="{{ url_for('pages.about') }}" class="hover:text-brand">About</a>
                 <a href="{{ url_for('pages.contact') }}" class="hover:text-brand">Contact</a>
             </nav>
-            <a href="/cart" class="relative inline-flex items-center gap-2 bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brand-dark transition">
+            <button type="button" id="menu-btn" class="md:hidden p-2 -mr-2 order-last ml-2 text-slate-700" aria-label="Menu" aria-expanded="false">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <a href="/cart" class="ml-auto md:ml-0 mr-2 md:mr-0 relative inline-flex items-center gap-2 bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brand-dark transition">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 2.3a1 1 0 00.7 1.7H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                 Cart
                 <span id="cart-count" class="{% if not cart_count %}hidden {% endif %}absolute -top-2 -right-2 bg-brand-accent text-brand text-xs font-bold rounded-full min-w-[1.4rem] h-[1.4rem] px-1 flex items-center justify-center">{{ cart_count or 0 }}</span>
             </a>
         </div>
+        <nav id="mobile-menu" class="hidden md:hidden border-t border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 space-y-3">
+            <a class="block" href="{{ url_for('main.index') }}">Shop</a>
+            <a class="block" href="{{ url_for('pages.shipping') }}">Shipping</a>
+            <a class="block" href="{{ url_for('pages.returns') }}">Returns</a>
+            <a class="block" href="{{ url_for('pages.about') }}">About</a>
+            <a class="block" href="{{ url_for('pages.contact') }}">Contact</a>
+        </nav>
+        <script>document.getElementById('menu-btn').addEventListener('click',function(){var m=document.getElementById('mobile-menu');m.classList.toggle('hidden');this.setAttribute('aria-expanded',!m.classList.contains('hidden'));});</script>
     </header>
 
     <main class="flex-1">

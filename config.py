@@ -19,7 +19,7 @@ def normalize_database_url(url):
     return url
 
 class Config(object):
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or (None if os.environ.get('VERCEL') else 'dev-only-insecure-key')
     USER_APP_NAME = "LOCOGANGA"
     USER_ENABLE_USERNAME = False
     USER_ENABLE_EMAIL = True
@@ -53,6 +53,9 @@ class Config(object):
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
 
     SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', 'support@locoganga.com')
+
+    # Retail price = partner supply price x markup, rounded to .99
+    PRICE_MARKUP = float(os.environ.get('PRICE_MARKUP', 1.45))
 
     # Product settings
     PRODUCT_PAGE_SIZE = int(os.environ.get('PRODUCT_PAGE_SIZE', 20))  # Products per page
