@@ -1,243 +1,113 @@
-<!-- templates/main/index.html -->
 {% extends "base.html" %}
+{% block title %}Shop Everyday Products{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8" x-data="{ cart: [] }">
-    <!-- Header -->
-    <header class="flex justify-between items-center mb-8">
-        <!-- Replace the cart button in index.html -->
-        <div class="container mx-auto px-4">
-            <!-- Top Bar -->
-            <div class="flex justify-between items-center py-4">
-                <!-- Logo and Company Name -->
-                <div class="flex items-center">
-                    <img src="/static/logo.png" 
-                         alt="Company Logo" 
-                         class="h-48 w-auto mr-4"
-                         onerror="this.src='https://via.placeholder.com/120x48?text=Your+Logo'">
-                </div>
-                
-                <!-- Cart Button -->
-                <div class="relative">
-                    <a href="/cart" 
-                    class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition inline-block">
-                        Cart
-                        <span x-text="cart.length" 
-                            class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
-                        </span>
-                    </a>
-                </div>
-            </div>
-            
-            <!-- Navigation Bar -->
-            <nav class="py-4">
-                <div class="flex items-center justify-between">
-                    <h1 class="text-2xl font-semibold">Products</h1>
-                    <!-- Add any additional navigation items here -->
-                </div>
-            </nav>
-        </div>
-    </header>
+<section class="bg-gradient-to-br from-brand to-brand-dark text-white">
+    <div class="max-w-7xl mx-auto px-4 py-14 sm:py-20">
+        <p class="text-brand-accent font-semibold tracking-wide text-sm mb-3">LOCOGANGA</p>
+        <h1 class="text-3xl sm:text-5xl font-extrabold leading-tight max-w-2xl">Everyday products, delivered across the U.S.</h1>
+        <p class="mt-4 text-slate-300 max-w-xl">Browse our current selection of home, sports, automotive and electronics essentials. Secure checkout, simple returns.</p>
+        <a href="#products" class="inline-block mt-8 bg-brand-accent text-brand font-bold px-6 py-3 rounded-lg hover:brightness-95 transition">Shop now</a>
+    </div>
+</section>
+
+<section class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 py-5 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div><div class="font-semibold text-brand">Secure checkout</div><div class="text-slate-500">Payments by Stripe</div></div>
+        <div><div class="font-semibold text-brand">U.S. shipping</div><div class="text-slate-500">Delivered nationwide</div></div>
+        <div><div class="font-semibold text-brand">30-day returns</div><div class="text-slate-500">On eligible items</div></div>
+        <div><div class="font-semibold text-brand">Email support</div><div class="text-slate-500">We reply within 1&ndash;2 days</div></div>
+    </div>
+</section>
+
+<div id="products" class="max-w-7xl mx-auto px-4 py-10">
+    <div class="flex items-end justify-between mb-6">
+        <h2 class="text-2xl font-bold text-brand">All products</h2>
+    </div>
 
     {% if error %}
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
-        <p>{{ error }}</p>
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6" role="alert">
+        <p>We&rsquo;re having trouble loading products right now. Please try again shortly.</p>
     </div>
     {% endif %}
 
-    {% if request.args.get('source') == 'fallback' %}
-    <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4" role="alert">
-        <p>⚠️ Notice: Using cached product data. Some information may not be current.</p>
-    </div>
-    {% endif %}
-
-   <!-- Products Grid -->
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
-    {% for product in products %}
-    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-        <!-- Product Image with Lazy Loading -->
-        <div class="relative pt-[100%]">  <!-- This creates a square aspect ratio -->
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f3f4f6'/%3E%3C/svg%3E" 
-                 data-src="{{ product.thumbnail }}" 
-                 alt="{{ product.title }}" 
-                 class="absolute top-0 left-0 w-full h-full object-cover lazy-load"
-                 onerror="this.src='https://via.placeholder.com/400x400?text=No+Image'">
-            
-            <!-- Stock Status Badge -->
-            <div class="absolute top-2 right-2">
-                {% if product.totalInventory > 20 %}
-                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">In Stock</span>
-                {% elif product.totalInventory > 0 %}
-                    <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Low Stock</span>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
+        {% for product in products %}
+        {% set sku = product.SKUList[0] if product.SKUList else none %}
+        <div data-card class="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+            <div class="relative aspect-square bg-slate-100">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f1f5f9'/%3E%3C/svg%3E"
+                     data-src="{{ product.thumbnail }}" alt="{{ product.title }}"
+                     class="absolute inset-0 w-full h-full object-contain p-2 lazy-load" onerror="var c=this.closest('[data-card]');if(c)c.remove()">
+            </div>
+            <div class="p-4 flex flex-col flex-1">
+                <h3 class="text-sm font-medium text-slate-800 line-clamp-2 min-h-[2.5rem]" title="{{ product.title }}">{{ product.title }}</h3>
+                {% if sku %}
+                <div class="mt-2 text-xl font-bold text-brand">${{ "%.2f"|format(sku.supplyPrice) }}</div>
+                {% endif %}
+                {% if sku and product.totalInventory > 0 %}
+                <div class="text-xs text-emerald-700 mt-1">In stock</div>
+                <button type="button" class="add-to-cart mt-3 w-full bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brand-dark transition"
+                        data-sku="{{ sku.SKU }}" data-spu="{{ product.SPU }}" data-title="{{ product.title }}"
+                        data-price="{{ sku.supplyPrice }}" data-thumbnail="{{ product.thumbnail }}">Add to cart</button>
                 {% else %}
-                    <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Out of Stock</span>
+                <div class="text-xs text-slate-500 mt-1">Currently unavailable</div>
+                <button type="button" disabled class="mt-3 w-full bg-slate-200 text-slate-500 text-sm px-4 py-2 rounded-lg cursor-not-allowed">Unavailable</button>
                 {% endif %}
             </div>
         </div>
-
-        <div class="p-3">  <!-- Reduced padding for tighter layout -->
-            <!-- Title -->
-            <h2 class="text-sm font-semibold mb-2 line-clamp-2 h-10" title="{{ product.title }}">
-                {{ product.title }}
-            </h2>
-
-            <!-- Product Details -->
-            <div class="space-y-1 mb-3">  <!-- Reduced spacing -->
-                {% if product.SKUList %}
-                    {% set sku = product.SKUList[0] %}
-                    <!-- Price -->
-                    <div class="text-lg font-bold text-blue-600">
-                        ${{ "%.2f"|format(sku.supplyPrice) }}
-                    </div>
-                    
-                    <!-- Product Specs -->
-                    <div class="text-xs text-gray-600">
-                        <p>Weight: {{ sku.weight }}kg</p>
-                        <p>{{ sku.length }}x{{ sku.width }}x{{ sku.height }}cm</p>
-                    </div>
-                {% endif %}
-            </div>
-
-            <!-- Add to Cart Button -->
-            {% if product.SKUList and product.totalInventory > 0 %}
-            <button 
-            @click="fetch('/cart/add', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    sku: '{{ product.SKUList[0].SKU }}',
-                    spu: '{{ product.SPU }}',
-                    title: '{{ product.title }}',
-                    price: {{ product.SKUList[0].supplyPrice }},
-                    thumbnail: '{{ product.thumbnail }}'
-                })
-            }).then(() => cart.push({
-                sku: '{{ product.SKUList[0].SKU }}',
-                quantity: 1
-            }))"
-            class="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
-            Add to Cart
-        </button>
-            {% else %}
-                <button 
-                    disabled
-                    class="w-full bg-gray-300 text-gray-500 px-3 py-1.5 rounded cursor-not-allowed text-sm">
-                    Out of Stock
-                </button>
-            {% endif %}
-        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
-</div>
 
-<!-- Pagination -->
-{% if pagination.total_pages > 1 %}
-<div class="flex justify-center items-center space-x-2 my-8">
-    {% if pagination.page > 1 %}
-    <a href="{{ url_for('main.index', page=pagination.page-1) }}"
-       class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
-        Previous
-    </a>
+    {% if not products and not error %}
+    <p class="text-center text-slate-500 py-16">No products to show right now. Please check back soon.</p>
     {% endif %}
 
-    {% set start = [pagination.page - 2, 1]|max %}
-    {% set end = [start + 4, pagination.total_pages]|min %}
-    {% set start = [end - 4, 1]|max %}
-
-    {% if start > 1 %}
-    <a href="{{ url_for('main.index', page=1) }}"
-       class="px-4 py-2 {% if pagination.page == 1 %}bg-blue-500 text-white{% else %}bg-gray-200 text-gray-700{% endif %} rounded hover:bg-blue-600 transition">
-        1
-    </a>
-    {% if start > 2 %}
-    <span class="px-2">...</span>
-    {% endif %}
-    {% endif %}
-
-    {% for p in range(start, end + 1) %}
-    <a href="{{ url_for('main.index', page=p) }}"
-       class="px-4 py-2 {% if pagination.page == p %}bg-blue-500 text-white{% else %}bg-gray-200 text-gray-700{% endif %} rounded hover:bg-blue-600 transition">
-        {{ p }}
-    </a>
-    {% endfor %}
-
-    {% if end < pagination.total_pages %}
-    {% if end < pagination.total_pages - 1 %}
-    <span class="px-2">...</span>
-    {% endif %}
-    <a href="{{ url_for('main.index', page=pagination.total_pages) }}"
-       class="px-4 py-2 {% if pagination.page == pagination.total_pages %}bg-blue-500 text-white{% else %}bg-gray-200 text-gray-700{% endif %} rounded hover:bg-blue-600 transition">
-        {{ pagination.total_pages }}
-    </a>
-    {% endif %}
-
-    {% if pagination.page < pagination.total_pages %}
-    <a href="{{ url_for('main.index', page=pagination.page+1) }}"
-       class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
-        Next
-    </a>
+    {% if pagination.total_pages > 1 %}
+    <nav class="flex justify-center items-center gap-2 my-8" aria-label="Pagination">
+        {% if pagination.page > 1 %}
+        <a href="{{ url_for('main.index', page=pagination.page-1) }}#products" class="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100">Previous</a>
+        {% endif %}
+        {% set start = [pagination.page - 2, 1]|max %}
+        {% set end = [start + 4, pagination.total_pages]|min %}
+        {% set start = [end - 4, 1]|max %}
+        {% for p in range(start, end + 1) %}
+        <a href="{{ url_for('main.index', page=p) }}#products" class="px-4 py-2 rounded-lg border {% if pagination.page == p %}bg-brand text-white border-brand{% else %}bg-white border-slate-200 hover:bg-slate-100{% endif %}">{{ p }}</a>
+        {% endfor %}
+        {% if pagination.page < pagination.total_pages %}
+        <a href="{{ url_for('main.index', page=pagination.page+1) }}#products" class="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100">Next</a>
+        {% endif %}
+    </nav>
     {% endif %}
 </div>
-{% endif %}
-</div>
 
-<!-- Add this script at the end of the content block -->
 <script>
-    // Lazy loading for images
-    document.addEventListener('DOMContentLoaded', function() {
-        let lazyImages = [].slice.call(document.querySelectorAll('img.lazy-load'));
-        
-        if ('IntersectionObserver' in window) {
-            let lazyImageObserver = new IntersectionObserver(function(entries, observer) {
-                entries.forEach(function(entry) {
-                    if (entry.isIntersecting) {
-                        let lazyImage = entry.target;
-                        lazyImage.src = lazyImage.dataset.src;
-                        lazyImage.classList.remove('lazy-load');
-                        lazyImageObserver.unobserve(lazyImage);
-                    }
-                });
-            });
-            
-            lazyImages.forEach(function(lazyImage) {
-                lazyImageObserver.observe(lazyImage);
-            });
-        } else {
-            // Fallback for browsers that don't support IntersectionObserver
-            let active = false;
-            
-            const lazyLoad = function() {
-                if (active === false) {
-                    active = true;
-                    
-                    setTimeout(function() {
-                        lazyImages.forEach(function(lazyImage) {
-                            if ((lazyImage.getBoundingClientRect().top <= window.innerHeight && lazyImage.getBoundingClientRect().bottom >= 0) && getComputedStyle(lazyImage).display !== 'none') {
-                                lazyImage.src = lazyImage.dataset.src;
-                                lazyImage.classList.remove('lazy-load');
-                                
-                                lazyImages = lazyImages.filter(function(image) {
-                                    return image !== lazyImage;
-                                });
-                                
-                                if (lazyImages.length === 0) {
-                                    document.removeEventListener('scroll', lazyLoad);
-                                    window.removeEventListener('resize', lazyLoad);
-                                    window.removeEventListener('orientationchange', lazyLoad);
-                                }
-                            }
-                        });
-                        
-                        active = false;
-                    }, 200);
-                }
-            };
-            
-            document.addEventListener('scroll', lazyLoad);
-            window.addEventListener('resize', lazyLoad);
-            window.addEventListener('orientationchange', lazyLoad);
-            lazyLoad();
-        }
+document.addEventListener('DOMContentLoaded', function () {
+    var imgs = [].slice.call(document.querySelectorAll('img.lazy-load'));
+    function load(img) { img.src = img.dataset.src; img.classList.remove('lazy-load'); }
+    if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) { if (e.isIntersecting) { load(e.target); io.unobserve(e.target); } });
+        }, { rootMargin: '200px' });
+        imgs.forEach(function (i) { io.observe(i); });
+    } else { imgs.forEach(load); }
+
+    document.querySelectorAll('.add-to-cart').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var d = btn.dataset, label = btn.textContent;
+            btn.disabled = true; btn.textContent = 'Adding...';
+            fetch('/cart/add', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sku: d.sku, spu: d.spu, title: d.title, price: parseFloat(d.price), thumbnail: d.thumbnail })
+            }).then(function (r) {
+                if (!r.ok) throw new Error('failed');
+                var c = document.getElementById('cart-count');
+                c.textContent = (parseInt(c.textContent || '0', 10) || 0) + 1; c.classList.remove('hidden');
+                btn.textContent = 'Added \u2713';
+            }).catch(function () { btn.textContent = 'Try again'; })
+              .finally(function () { setTimeout(function () { btn.disabled = false; btn.textContent = label; }, 1200); });
+        });
     });
+});
 </script>
 {% endblock %}

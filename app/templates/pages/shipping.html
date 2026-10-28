@@ -1,0 +1,20 @@
+{% extends "pages/_layout.html" %}
+{% block title %}Shipping Information{% endblock %}
+{% block heading %}Shipping Information{% endblock %}
+{% block sub %}We ship within the United States.{% endblock %}
+{% block body %}
+<h2>Where we ship</h2>
+<p>Locoganga currently ships to addresses in the United States only.</p>
+<h2>Processing and delivery</h2>
+<ul>
+    <li>Orders are processed within 1&ndash;3 business days.</li>
+    <li>Delivery typically takes 5&ndash;10 business days after processing, depending on the item and your location.</li>
+    <li>You will receive a confirmation email when your order is placed and a follow-up when it ships.</li>
+</ul>
+<h2>Stock availability</h2>
+<p>Our inventory is held by fulfillment partners and changes frequently. If an item becomes unavailable after you order, we will notify you by email and refund your payment in full.</p>
+<h2>Shipping costs and taxes</h2>
+<p>Any shipping charges and applicable taxes are shown before you complete your purchase.</p>
+<h2>Questions</h2>
+<p>Contact <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+{% endblock %}

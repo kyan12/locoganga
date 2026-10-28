@@ -52,5 +52,7 @@ class Config(object):
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
 
+    SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', 'support@locoganga.com')
+
     # Product settings
     PRODUCT_PAGE_SIZE = int(os.environ.get('PRODUCT_PAGE_SIZE', 20))  # Products per page

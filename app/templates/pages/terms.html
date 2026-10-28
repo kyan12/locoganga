@@ -1,0 +1,21 @@
+{% extends "pages/_layout.html" %}
+{% block title %}Terms of Service{% endblock %}
+{% block heading %}Terms of Service{% endblock %}
+{% block sub %}Last updated: October 2026{% endblock %}
+{% block body %}
+<p>These terms govern your use of locoganga.com and purchases from Locoganga, 919 Fairmount Ave, Elizabeth, NJ 07201.</p>
+<h2>Orders and availability</h2>
+<p>Product listings reflect inventory held by our fulfillment partners and may change without notice. An order is accepted only when we confirm shipment. If an item is unavailable, we will cancel that item and refund you in full.</p>
+<h2>Pricing and payment</h2>
+<p>Prices are in U.S. dollars. We reserve the right to correct pricing errors. Payments are processed by Stripe.</p>
+<h2>Shipping and returns</h2>
+<p>See our <a href="{{ url_for('pages.shipping') }}">Shipping Information</a> and <a href="{{ url_for('pages.returns') }}">Returns &amp; Refunds</a> pages, which are part of these terms.</p>
+<h2>Use of the site</h2>
+<p>You agree not to misuse the site, attempt unauthorized access, or use it for unlawful purposes.</p>
+<h2>Limitation of liability</h2>
+<p>To the extent permitted by law, Locoganga&rsquo;s liability for any claim related to an order is limited to the amount you paid for that order.</p>
+<h2>Governing law</h2>
+<p>These terms are governed by the laws of the State of New Jersey.</p>
+<h2>Contact</h2>
+<p><a href="mailto:{{ support_email }}">{{ support_email }}</a></p>
+{% endblock %}

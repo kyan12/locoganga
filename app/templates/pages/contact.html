@@ -1,0 +1,17 @@
+{% extends "pages/_layout.html" %}
+{% block title %}Contact Us{% endblock %}
+{% block heading %}Contact Us{% endblock %}
+{% block sub %}We reply to every message, usually within one to two business days.{% endblock %}
+{% block body %}
+<h2>Customer support</h2>
+<p>Email: <a href="mailto:{{ support_email }}">{{ support_email }}</a></p>
+<p>Please include your order number and the email address used at checkout so we can help faster.</p>
+<h2>Mailing address</h2>
+<p>Locoganga<br>919 Fairmount Ave<br>Elizabeth, NJ 07201<br>United States</p>
+<p class="text-sm text-slate-500">This is our business office and mailing address. Returns are not accepted at this address without a return authorization. See our <a href="{{ url_for('pages.returns') }}">returns policy</a>.</p>
+<h2>Helpful links</h2>
+<ul>
+    <li><a href="{{ url_for('pages.shipping') }}">Shipping information</a></li>
+    <li><a href="{{ url_for('pages.returns') }}">Returns &amp; refunds</a></li>
+</ul>
+{% endblock %}

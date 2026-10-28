@@ -1,0 +1,18 @@
+{% extends "pages/_layout.html" %}
+{% block title %}Returns &amp; Refunds{% endblock %}
+{% block heading %}Returns &amp; Refunds{% endblock %}
+{% block sub %}30-day returns on eligible items.{% endblock %}
+{% block body %}
+<h2>Return window</h2>
+<p>You may request a return within 30 days of delivery for items that are unused and in their original packaging.</p>
+<h2>How to start a return</h2>
+<ul>
+    <li>Email <a href="mailto:{{ support_email }}">{{ support_email }}</a> with your order number and the reason for the return.</li>
+    <li>We will send return instructions and an authorization within 2 business days.</li>
+    <li>Please do not send items back without an authorization.</li>
+</ul>
+<h2>Refunds</h2>
+<p>Once we receive and inspect your return, we refund the original payment method within 5&ndash;10 business days. Orders that we cannot fulfill, for example because an item went out of stock, are refunded in full automatically.</p>
+<h2>Damaged or incorrect items</h2>
+<p>If your order arrives damaged or is not what you ordered, contact us within 14 days of delivery with a photo and we will arrange a replacement or refund.</p>
+{% endblock %}

@@ -130,7 +130,7 @@ def create_checkout_session():
             'success_url': success_url,
             'cancel_url': cancel_url,
             'shipping_address_collection': {
-                'allowed_countries': ['US', 'GB', 'AU'],
+                'allowed_countries': ['US'],
             },
             'metadata': {
                 'cart_session_id': session['session_id']

@@ -1,0 +1,27 @@
+{% extends "pages/_layout.html" %}
+{% block title %}Privacy Policy{% endblock %}
+{% block heading %}Privacy Policy{% endblock %}
+{% block sub %}Last updated: October 2026{% endblock %}
+{% block body %}
+<p>Locoganga (&ldquo;we&rdquo;, &ldquo;us&rdquo;), 919 Fairmount Ave, Elizabeth, NJ 07201, respects your privacy. This policy explains what we collect and how we use it.</p>
+<h2>Information we collect</h2>
+<ul>
+    <li>Order details: name, email address, shipping address, and the items you purchase.</li>
+    <li>Payment information is entered on Stripe&rsquo;s secure checkout. We do not receive or store your full card number.</li>
+    <li>Basic technical data such as your browser type and a cookie that keeps your shopping cart.</li>
+</ul>
+<h2>How we use it</h2>
+<ul>
+    <li>To process and deliver your order and send order-related emails.</li>
+    <li>To provide customer support and prevent fraud.</li>
+    <li>To meet legal and tax obligations.</li>
+</ul>
+<h2>Sharing</h2>
+<p>We share information only with service providers needed to fulfill your order: payment processing (Stripe), our warehouse and fulfillment partners, and email delivery. We do not sell your personal information.</p>
+<h2>Cookies</h2>
+<p>We use a session cookie to remember your cart. You can block cookies in your browser, but the cart will not work without it.</p>
+<h2>Your choices</h2>
+<p>You may request access to, correction of, or deletion of your personal information by emailing <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+<h2>Changes</h2>
+<p>We may update this policy and will post the new date above.</p>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "pages/_layout.html" %}
+{% block title %}About Us{% endblock %}
+{% block heading %}About Locoganga{% endblock %}
+{% block sub %}A U.S. online retailer based in Elizabeth, New Jersey.{% endblock %}
+{% block body %}
+<p>Locoganga is an online store offering a rotating selection of everyday products, from home and sports goods to automotive accessories and electronics, with straightforward pricing and secure checkout.</p>
+<h2>How we work</h2>
+<p>We keep our overhead low by working with established warehouse and fulfillment partners. Products are listed from partner inventory, so the selection changes as stock changes. If an item you ordered turns out to be unavailable, we will email you promptly and refund your payment in full.</p>
+<h2>Our commitments</h2>
+<ul>
+    <li>Clear pricing at checkout, with no hidden fees.</li>
+    <li>Secure card payments processed by Stripe. We never see or store your card number.</li>
+    <li>Responsive support by email.</li>
+</ul>
+<h2>Where to find us</h2>
+<p>Locoganga<br>919 Fairmount Ave<br>Elizabeth, NJ 07201<br>United States</p>
+<p>Questions? <a href="{{ url_for('pages.contact') }}">Contact us</a>.</p>
+{% endblock %}

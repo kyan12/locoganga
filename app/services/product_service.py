@@ -16,6 +16,20 @@ class ProductService:
         self.using_fallback = False
         
     @staticmethod
+    def is_displayable(product):
+        """Hide test/junk listings: placeholder titles, no image, or near-zero price."""
+        title = (product.get('title') or '').strip()
+        if len(title) < 12 or title.lower().startswith('usb stick'):
+            return False
+        if not str(product.get('thumbnail') or '').startswith('http'):
+            return False
+        product['thumbnail'] = product['thumbnail'].replace('http://', 'https://', 1)
+        skus = product.get('SKUList') or []
+        if not skus or (skus[0].get('supplyPrice') or 0) < 5:
+            return False
+        return True
+
+    @staticmethod
     def load_fallback_products(fallback_file=None):
         """Load products from fallback JSON file"""
         try:
@@ -33,7 +47,7 @@ class ProductService:
                 return []
                 
             with open(fallback_file, 'r', encoding='utf-8') as f:
-                products = json.load(f)
+                products = [p for p in json.load(f) if ProductService.is_displayable(p)]
                 
             if has_app_context():
                 current_app.logger.info(f"Loaded {len(products)} products from fallback file")
@@ -64,10 +78,9 @@ class ProductService:
         """
         self.using_fallback = False
         
-        if not has_app_context():
-            if not self.app:
-                return [], {'page': page, 'total_pages': 1}
-            current_app = self.app
+        if not has_app_context() and not self.app:
+            return [], {'page': page, 'total_pages': 1}
+        log = (current_app.logger if has_app_context() else self.app.logger)
         
         try:
             # Try to fetch from API first with shorter timeout
@@ -85,11 +98,14 @@ class ProductService:
                     },
                     'warehouseCode': warehouse_code
                 },
-                timeout=5  # Short timeout to quickly fall back
+                timeout=12  # Allow for cross-region latency, then fall back
             )
             
             # Process API response
             if not isinstance(response_data, dict) or response_data.get('code') != '0':
+                code = response_data.get('code') if isinstance(response_data, dict) else None
+                log.error(f"Winit API rejected request (code={code}); serving fallback catalog. "
+                          "If this is 02010250308 the WINIT_TOKEN is invalid or unauthorized.")
                 if use_fallback:
                     return self._process_fallback(page, items_per_page)
                 return [], {'page': page, 'total_pages': 1}
@@ -101,7 +117,7 @@ class ProductService:
             # Filter in-stock products
             in_stock_products = [
                 product for product in all_products
-                if product.get('totalInventory', 0) > 0
+                if product.get('totalInventory', 0) > 0 and ProductService.is_displayable(product)
             ]
             
             # Calculate pagination
@@ -120,7 +136,7 @@ class ProductService:
             return page_products, {'page': page, 'total_pages': total_pages}
             
         except Exception as e:
-            current_app.logger.warning(f"API request failed, using fallback: {str(e)}")
+            log.error(f"Winit API request failed, using fallback: {type(e).__name__}: {e}")
             if use_fallback:
                 return self._process_fallback(page, items_per_page)
             return [], {'page': page, 'total_pages': 1}

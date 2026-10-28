@@ -32,11 +32,31 @@ def create_app(config_class=Config):
     from .blueprints.main import bp as main_bp
     app.register_blueprint(main_bp)
 
+    from .blueprints.pages import bp as pages_bp
+    app.register_blueprint(pages_bp)
+
     from .blueprints.cart import bp as cart_bp
     app.register_blueprint(cart_bp, url_prefix='/cart')
 
     from .blueprints.checkout import bp as checkout_bp
     app.register_blueprint(checkout_bp, url_prefix='/checkout')
+
+    @app.context_processor
+    def inject_globals():
+        from datetime import date
+        from flask import session
+        from .models import CartItem
+        count = 0
+        try:
+            if 'session_id' in session:
+                count = sum(i.quantity or 0 for i in CartItem.query.filter_by(session_id=session['session_id']).all())
+        except Exception:
+            count = 0
+        return {
+            'cart_count': count,
+            'current_year': date.today().year,
+            'support_email': app.config.get('SUPPORT_EMAIL'),
+        }
 
     if not app.debug and not app.testing and not os.environ.get('VERCEL'):
         if not os.path.exists(app.config['LOG_DIR']):

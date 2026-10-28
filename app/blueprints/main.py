@@ -19,16 +19,6 @@ def index():
             items_per_page=items_per_page
         )
         
-        # Check if we're using fallback
-        using_fallback = 'source' in pagination and pagination['source'] == 'fallback'
-        
-        # If using fallback and not already indicating it in query params, redirect to add the indicator
-        if using_fallback and request.args.get('source') != 'fallback':
-            # Preserve existing query parameters
-            args = request.args.copy()
-            args['source'] = 'fallback'
-            return redirect(url_for('main.index', **args))
-        
         # If we got products (either from API or fallback), render the page
         return render_template('main/index.html', 
                              products=page_products,
@@ -53,11 +43,10 @@ def index():
             
             current_app.logger.info(f"Using direct fallback after exception ({len(page_products)} items)")
             
-            # Always show fallback notice in this case
-            args = request.args.copy()
-            args['source'] = 'fallback'
-            return redirect(url_for('main.index', **args))
-            
+            return render_template('main/index.html',
+                                   products=page_products,
+                                   pagination={'page': requested_page, 'total_pages': total_pages})
+
         except Exception as fallback_error:
             current_app.logger.error(f"Fallback also failed: {fallback_error}")
             return render_template('main/index.html', 
