@@ -1,0 +1,60 @@
+{% macro product_card(product) %}
+{% set sku = product.SKUList[0] if product.SKUList else none %}
+{% set url = url_for('main.product', handle=product.handle) if product.handle else '#' %}
+<div data-card class="group bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+    <a href="{{ url }}" class="relative block aspect-square bg-white">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f1f5f9'/%3E%3C/svg%3E"
+             data-src="{{ product.thumbnail }}" alt="{{ product.title }}"
+             class="absolute inset-0 w-full h-full object-contain p-3 lazy-load group-hover:scale-[1.03] transition-transform" onerror="var c=this.closest('[data-card]');if(c)c.remove()">
+    </a>
+    <div class="p-4 flex flex-col flex-1">
+        {% if product.categoryName %}<div class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">{{ product.categoryName }}</div>{% endif %}
+        <a href="{{ url }}" class="text-sm font-medium text-slate-800 line-clamp-2 min-h-[2.5rem] hover:text-brand" title="{{ product.title }}">{{ product.title }}</a>
+        {% if sku %}
+        <div class="mt-2 text-xl font-bold text-brand">{% if product.SKUList|length > 1 %}<span class="text-xs font-medium text-slate-500">From </span>{% endif %}${{ "%.2f"|format(product.SKUList|map(attribute='supplyPrice')|min|retail) }}</div>
+        {% endif %}
+        {% if sku and product.totalInventory > 0 %}
+            {% if product.SKUList|length > 1 %}
+            <a href="{{ url }}" class="mt-auto pt-3"><span class="block w-full text-center border border-brand text-brand text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brand hover:text-white transition">Choose options</span></a>
+            {% else %}
+            <button type="button" class="add-to-cart mt-auto w-full bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brand-dark transition" style="margin-top:auto" data-sku="{{ sku.SKU }}">Add to cart</button>
+            {% endif %}
+        {% else %}
+            <button type="button" disabled class="mt-3 w-full bg-slate-200 text-slate-500 text-sm px-4 py-2 rounded-lg cursor-not-allowed">Sold out</button>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{% macro shop_scripts() %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var imgs = [].slice.call(document.querySelectorAll('img.lazy-load'));
+    function load(img) { img.src = img.dataset.src; img.classList.remove('lazy-load'); }
+    if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) { if (e.isIntersecting) { load(e.target); io.unobserve(e.target); } });
+        }, { rootMargin: '300px' });
+        imgs.forEach(function (i) { io.observe(i); });
+    } else { imgs.forEach(load); }
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.add-to-cart');
+        if (!btn || btn.disabled) return;
+        var sku = btn.dataset.sku || (document.getElementById('variant-select') || {}).value;
+        var qtyEl = document.getElementById('qty');
+        var label = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Adding...';
+        fetch('/cart/add', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sku: sku, quantity: qtyEl ? parseInt(qtyEl.value, 10) || 1 : 1 })
+        }).then(function (r) { if (!r.ok) throw new Error('failed'); return r.json(); })
+          .then(function (d) {
+            var c = document.getElementById('cart-count');
+            c.textContent = d.cart_count; c.classList.remove('hidden');
+            btn.textContent = 'Added \u2713';
+        }).catch(function () { btn.textContent = 'Try again'; })
+          .finally(function () { setTimeout(function () { btn.disabled = false; btn.textContent = label; }, 1400); });
+    });
+});
+</script>
+{% endmacro %}

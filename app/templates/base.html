@@ -65,6 +65,10 @@
                 <h3 class="text-white font-semibold mb-3">Shop</h3>
                 <ul class="space-y-2">
                     <li><a class="hover:text-white" href="{{ url_for('main.index') }}">All products</a></li>
+                    <li><a class="hover:text-white" href="{{ url_for('main.index', category='kitchen') }}">Kitchen &amp; Dining</a></li>
+                    <li><a class="hover:text-white" href="{{ url_for('main.index', category='home') }}">Home &amp; Decor</a></li>
+                    <li><a class="hover:text-white" href="{{ url_for('main.index', category='tools') }}">Tools &amp; Hardware</a></li>
+                    <li><a class="hover:text-white" href="{{ url_for('main.index', category='electronics') }}">Phone &amp; Electronics</a></li>
                     <li><a class="hover:text-white" href="/cart">Your cart</a></li>
                 </ul>
             </div>

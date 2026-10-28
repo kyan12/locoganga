@@ -1,12 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Shop Everyday Products{% endblock %}
+{% from "main/_macros.html" import product_card, shop_scripts %}
+{% block title %}{% if current_category %}{{ current_category.name }}{% elif q %}Search: {{ q }}{% else %}Shop Everyday Products{% endif %}{% endblock %}
 
 {% block content %}
+{% if show_hero %}
 <section class="bg-gradient-to-br from-brand to-brand-dark text-white">
     <div class="max-w-7xl mx-auto px-4 py-14 sm:py-20">
         <p class="text-brand-accent font-semibold tracking-wide text-sm mb-3">LOCOGANGA</p>
         <h1 class="text-3xl sm:text-5xl font-extrabold leading-tight max-w-2xl">Everyday products, delivered across the U.S.</h1>
-        <p class="mt-4 text-slate-300 max-w-xl">Browse our current selection of home, sports, automotive and electronics essentials. Secure checkout, simple returns.</p>
+        <p class="mt-4 text-slate-300 max-w-xl">Kitchen, home, tools, garden, tech, fitness, outdoor and pet essentials &mdash; {{ categories|sum(attribute='count') }} products and counting. Secure checkout, simple returns.</p>
         <a href="#products" class="inline-block mt-8 bg-brand-accent text-brand font-bold px-6 py-3 rounded-lg hover:brightness-95 transition">Shop now</a>
     </div>
 </section>
@@ -20,9 +22,40 @@
     </div>
 </section>
 
+<section class="max-w-7xl mx-auto px-4 pt-10">
+    <h2 class="text-2xl font-bold text-brand mb-5">Shop by category</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        {% for c in categories %}
+        <a href="{{ url_for('main.index', category=c.slug) }}#products" class="bg-white border border-slate-200 rounded-xl px-4 py-5 hover:border-brand hover:shadow-sm transition">
+            <div class="font-semibold text-slate-800">{{ c.name }}</div>
+            <div class="text-xs text-slate-500 mt-1">{{ c.count }} products</div>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 <div id="products" class="max-w-7xl mx-auto px-4 py-10">
-    <div class="flex items-end justify-between mb-6">
-        <h2 class="text-2xl font-bold text-brand">All products</h2>
+    <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-5">
+        <div>
+            <h1 class="text-2xl font-bold text-brand">{% if current_category %}{{ current_category.name }}{% elif q %}Results for &ldquo;{{ q }}&rdquo;{% else %}All products{% endif %}</h1>
+            {% if total is not none %}<p class="text-sm text-slate-500 mt-1">{{ total }} item{{ '' if total == 1 else 's' }}</p>{% endif %}
+        </div>
+        <form method="get" action="{{ url_for('main.index') }}#products" class="flex flex-wrap gap-2">
+            {% if current_category %}<input type="hidden" name="category" value="{{ current_category.slug }}">{% endif %}
+            <input type="search" name="q" value="{{ q }}" placeholder="Search products" class="w-56 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand">
+            <select name="sort" onchange="this.form.submit()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                {% for k, v in sorts.items() %}<option value="{{ k }}" {% if k == sort %}selected{% endif %}>{{ v }}</option>{% endfor %}
+            </select>
+            <button class="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brand-dark">Search</button>
+        </form>
+    </div>
+
+    <div class="flex gap-2 overflow-x-auto pb-2 mb-6 text-sm">
+        <a href="{{ url_for('main.index', q=q or None, sort=sort or None) }}#products" class="whitespace-nowrap px-3 py-1.5 rounded-full border {% if not current_category %}bg-brand text-white border-brand{% else %}bg-white border-slate-300 hover:border-brand{% endif %}">All</a>
+        {% for c in categories %}
+        <a href="{{ url_for('main.index', category=c.slug, q=q or None, sort=sort or None) }}#products" class="whitespace-nowrap px-3 py-1.5 rounded-full border {% if current_category and current_category.slug == c.slug %}bg-brand text-white border-brand{% else %}bg-white border-slate-300 hover:border-brand{% endif %}">{{ c.name }}</a>
+        {% endfor %}
     </div>
 
     {% if error %}
@@ -32,82 +65,33 @@
     {% endif %}
 
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
-        {% for product in products %}
-        {% set sku = product.SKUList[0] if product.SKUList else none %}
-        <div data-card class="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
-            <div class="relative aspect-square bg-slate-100">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f1f5f9'/%3E%3C/svg%3E"
-                     data-src="{{ product.thumbnail }}" alt="{{ product.title }}"
-                     class="absolute inset-0 w-full h-full object-contain p-2 lazy-load" onerror="var c=this.closest('[data-card]');if(c)c.remove()">
-            </div>
-            <div class="p-4 flex flex-col flex-1">
-                <h3 class="text-sm font-medium text-slate-800 line-clamp-2 min-h-[2.5rem]" title="{{ product.title }}">{{ product.title }}</h3>
-                {% if sku %}
-                <div class="mt-2 text-xl font-bold text-brand">${{ "%.2f"|format(sku.supplyPrice|retail) }}</div>
-                {% endif %}
-                {% if sku and product.totalInventory > 0 %}
-                <div class="text-xs text-emerald-700 mt-1">In stock</div>
-                <button type="button" class="add-to-cart mt-3 w-full bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brand-dark transition"
-                        data-sku="{{ sku.SKU }}" data-spu="{{ product.SPU }}" data-title="{{ product.title }}"
-                        data-price="{{ sku.supplyPrice|retail }}" data-thumbnail="{{ product.thumbnail }}">Add to cart</button>
-                {% else %}
-                <div class="text-xs text-slate-500 mt-1">Currently unavailable</div>
-                <button type="button" disabled class="mt-3 w-full bg-slate-200 text-slate-500 text-sm px-4 py-2 rounded-lg cursor-not-allowed">Unavailable</button>
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
+        {% for product in products %}{{ product_card(product) }}{% endfor %}
     </div>
 
     {% if not products and not error %}
-    <p class="text-center text-slate-500 py-16">No products to show right now. Please check back soon.</p>
+    <div class="text-center text-slate-500 py-16">
+        <p>No products match your search.</p>
+        <a href="{{ url_for('main.index') }}#products" class="inline-block mt-3 text-brand font-semibold hover:underline">View all products</a>
+    </div>
     {% endif %}
 
     {% if pagination.total_pages > 1 %}
-    <nav class="flex justify-center items-center gap-2 my-8" aria-label="Pagination">
+    {% set args = {'category': current_category.slug if current_category else None, 'q': q or None, 'sort': sort or None} %}
+    <nav class="flex justify-center items-center gap-2 my-8 flex-wrap" aria-label="Pagination">
         {% if pagination.page > 1 %}
-        <a href="{{ url_for('main.index', page=pagination.page-1) }}#products" class="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100">Previous</a>
+        <a href="{{ url_for('main.index', page=pagination.page-1, **args) }}#products" class="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100">Previous</a>
         {% endif %}
         {% set start = [pagination.page - 2, 1]|max %}
         {% set end = [start + 4, pagination.total_pages]|min %}
         {% set start = [end - 4, 1]|max %}
         {% for p in range(start, end + 1) %}
-        <a href="{{ url_for('main.index', page=p) }}#products" class="px-4 py-2 rounded-lg border {% if pagination.page == p %}bg-brand text-white border-brand{% else %}bg-white border-slate-200 hover:bg-slate-100{% endif %}">{{ p }}</a>
+        <a href="{{ url_for('main.index', page=p, **args) }}#products" class="px-4 py-2 rounded-lg border {% if pagination.page == p %}bg-brand text-white border-brand{% else %}bg-white border-slate-200 hover:bg-slate-100{% endif %}">{{ p }}</a>
         {% endfor %}
         {% if pagination.page < pagination.total_pages %}
-        <a href="{{ url_for('main.index', page=pagination.page+1) }}#products" class="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100">Next</a>
+        <a href="{{ url_for('main.index', page=pagination.page+1, **args) }}#products" class="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100">Next</a>
         {% endif %}
     </nav>
     {% endif %}
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var imgs = [].slice.call(document.querySelectorAll('img.lazy-load'));
-    function load(img) { img.src = img.dataset.src; img.classList.remove('lazy-load'); }
-    if ('IntersectionObserver' in window) {
-        var io = new IntersectionObserver(function (entries) {
-            entries.forEach(function (e) { if (e.isIntersecting) { load(e.target); io.unobserve(e.target); } });
-        }, { rootMargin: '200px' });
-        imgs.forEach(function (i) { io.observe(i); });
-    } else { imgs.forEach(load); }
-
-    document.querySelectorAll('.add-to-cart').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var d = btn.dataset, label = btn.textContent;
-            btn.disabled = true; btn.textContent = 'Adding...';
-            fetch('/cart/add', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sku: d.sku, spu: d.spu, title: d.title, price: parseFloat(d.price), thumbnail: d.thumbnail })
-            }).then(function (r) {
-                if (!r.ok) throw new Error('failed');
-                var c = document.getElementById('cart-count');
-                c.textContent = (parseInt(c.textContent || '0', 10) || 0) + 1; c.classList.remove('hidden');
-                btn.textContent = 'Added \u2713';
-            }).catch(function () { btn.textContent = 'Try again'; })
-              .finally(function () { setTimeout(function () { btn.disabled = false; btn.textContent = label; }, 1200); });
-        });
-    });
-});
-</script>
+{{ shop_scripts() }}
 {% endblock %}

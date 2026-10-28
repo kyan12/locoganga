@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "main/_macros.html" import product_card, shop_scripts %}
+{% block title %}{{ product.title }}{% endblock %}
+{% block description %}{{ product.title }} &mdash; shop {{ product.categoryName }} at Locoganga. Secure checkout and U.S. delivery.{% endblock %}
+{% block extra_head %}<meta property="og:image" content="{{ product.thumbnail }}">{% endblock %}
+
+{% block content %}
+{% set first = product.SKUList[0] %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <nav class="text-sm text-slate-500 mb-6">
+        <a href="{{ url_for('main.index') }}" class="hover:text-brand">Shop</a> <span class="mx-1">/</span>
+        <a href="{{ url_for('main.index', category=product.category) }}#products" class="hover:text-brand">{{ product.categoryName }}</a>
+    </nav>
+    <div class="grid lg:grid-cols-2 gap-8 lg:gap-12">
+        <div>
+            <div class="bg-white border border-slate-200 rounded-xl aspect-square flex items-center justify-center overflow-hidden">
+                <img id="main-image" src="{{ first.image or product.images[0] }}" alt="{{ product.title }}" class="w-full h-full object-contain p-4">
+            </div>
+            {% if product.images|length > 1 %}
+            <div class="grid grid-cols-5 sm:grid-cols-6 gap-2 mt-3">
+                {% for im in product.images %}
+                <button type="button" class="thumb bg-white border border-slate-200 rounded-lg aspect-square overflow-hidden hover:border-brand" data-img="{{ im }}">
+                    <img src="{{ im }}" alt="" loading="lazy" class="w-full h-full object-contain p-1" onerror="this.parentElement.remove()">
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div>
+            <div class="text-xs uppercase tracking-wide text-slate-400">{{ product.categoryName }}</div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 mt-1 leading-snug">{{ product.title }}</h1>
+            <div class="mt-4 text-3xl font-extrabold text-brand" id="price">${{ "%.2f"|format(first.supplyPrice|retail) }}</div>
+            {% if product.totalInventory > 0 %}
+            <div class="text-sm text-emerald-700 mt-2">In stock &middot; ships from our U.S. partner warehouse</div>
+            {% else %}
+            <div class="text-sm text-slate-500 mt-2">Sold out</div>
+            {% endif %}
+
+            {% if product.SKUList|length > 1 %}
+            <label for="variant-select" class="block text-sm font-semibold text-slate-700 mt-6 mb-2">Option</label>
+            <select id="variant-select" class="w-full sm:w-80 border border-slate-300 rounded-lg px-3 py-2 bg-white">
+                {% for v in product.SKUList %}
+                <option value="{{ v.SKU }}" data-price="{{ "%.2f"|format(v.supplyPrice|retail) }}" data-image="{{ v.image or '' }}">{{ v.option or ('Option ' ~ loop.index) }} &mdash; ${{ "%.2f"|format(v.supplyPrice|retail) }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
+            {% if product.totalInventory > 0 %}
+            <div class="flex items-center gap-3 mt-6">
+                <label for="qty" class="text-sm font-semibold text-slate-700">Qty</label>
+                <input id="qty" type="number" min="1" max="20" value="1" class="w-20 border border-slate-300 rounded-lg px-3 py-2">
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 mt-6">
+                <button type="button" class="add-to-cart flex-1 bg-brand text-white font-semibold px-6 py-3 rounded-lg hover:bg-brand-dark transition" {% if product.SKUList|length == 1 %}data-sku="{{ first.SKU }}"{% endif %}>Add to cart</button>
+                <a href="/cart" class="flex-1 text-center border border-brand text-brand font-semibold px-6 py-3 rounded-lg hover:bg-slate-100 transition">View cart</a>
+            </div>
+            {% endif %}
+
+            <ul class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <li class="bg-white border border-slate-200 rounded-lg p-3"><div class="font-semibold text-brand">U.S. delivery</div><div class="text-slate-500">Tracked shipping</div></li>
+                <li class="bg-white border border-slate-200 rounded-lg p-3"><div class="font-semibold text-brand">30-day returns</div><div class="text-slate-500">On eligible items</div></li>
+                <li class="bg-white border border-slate-200 rounded-lg p-3"><div class="font-semibold text-brand">Secure payment</div><div class="text-slate-500">Processed by Stripe</div></li>
+            </ul>
+
+            {% if product.description %}
+            <div class="mt-8 border-t border-slate-200 pt-6">
+                <h2 class="text-lg font-bold text-slate-900 mb-3">Product details</h2>
+                <div class="prose-desc text-sm text-slate-700 leading-relaxed space-y-3">{{ product.description|safe }}</div>
+            </div>
+            {% endif %}
+            <p class="text-xs text-slate-400 mt-6">Item #{{ product.SPU }}</p>
+        </div>
+    </div>
+
+    {% if related %}
+    <section class="mt-16">
+        <h2 class="text-xl font-bold text-brand mb-5">More in {{ product.categoryName }}</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            {% for p in related %}{{ product_card(p) }}{% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+<style>.prose-desc ul{list-style:disc;padding-left:1.25rem}.prose-desc ol{list-style:decimal;padding-left:1.25rem}.prose-desc h4{font-weight:600;margin-top:.75rem}.prose-desc img{display:none}</style>
+<script>
+document.querySelectorAll('.thumb').forEach(function (b) {
+    b.addEventListener('click', function () { document.getElementById('main-image').src = b.dataset.img; });
+});
+var vs = document.getElementById('variant-select');
+if (vs) vs.addEventListener('change', function () {
+    var o = vs.options[vs.selectedIndex];
+    document.getElementById('price').textContent = '$' + o.dataset.price;
+    if (o.dataset.image) document.getElementById('main-image').src = o.dataset.image;
+});
+</script>
+{{ shop_scripts() }}
+{% endblock %}

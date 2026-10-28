@@ -23,14 +23,13 @@ def checkout_page():
         return redirect(url_for('main.index'))
 
     # Fetch delivery methods via WinitAPI (using a default warehouse code e.g., 'UKGF')
-    winit_api = WinitAPI.from_app(current_app)
-    try:
-        delivery_response = winit_api.get_delivery_methods('UKGF')
-        # Assume delivery_response is a dict containing delivery methods in data key
-        delivery_methods = delivery_response.get('data', []) if isinstance(delivery_response, dict) else []
-    except Exception as e:
-        current_app.logger.error('Error fetching delivery methods: ' + str(e))
-        delivery_methods = []
+    delivery_methods = []
+    if current_app.config.get('WINIT_ENABLED'):
+        try:
+            delivery_response = WinitAPI.from_app(current_app).get_delivery_methods('UKGF')
+            delivery_methods = delivery_response.get('data', []) if isinstance(delivery_response, dict) else []
+        except Exception as e:
+            current_app.logger.error('Error fetching delivery methods: ' + str(e))
 
     # Get publishable key for rendering
     stripe_publishable_key = current_app.config.get('STRIPE_PUBLISHABLE_KEY', '')

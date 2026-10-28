@@ -6,6 +6,62 @@ from .winit_api import WinitAPI
 
 logger = logging.getLogger('product_service')
 
+CATEGORY_ORDER = ['kitchen', 'home', 'tools', 'garden', 'electronics', 'fitness', 'outdoors', 'pets']
+
+
+class Catalog:
+    """In-memory index over the catalog snapshot (loaded once per process)."""
+    _products = None
+
+    @classmethod
+    def all(cls):
+        if cls._products is None:
+            cls._products = ProductService.load_fallback_products()
+            cls._by_handle = {p.get('handle'): p for p in cls._products if p.get('handle')}
+            cls._by_sku = {s['SKU']: (p, s) for p in cls._products for s in (p.get('SKUList') or [])}
+        return cls._products
+
+    @classmethod
+    def categories(cls):
+        names = {}
+        for p in cls.all():
+            if p.get('category'):
+                names.setdefault(p['category'], [p.get('categoryName') or p['category'].title(), 0])[1] += 1
+        order = {c: i for i, c in enumerate(CATEGORY_ORDER)}
+        return [{'slug': c, 'name': n, 'count': k} for c, (n, k) in sorted(names.items(), key=lambda x: order.get(x[0], 99))]
+
+    @classmethod
+    def by_handle(cls, handle):
+        cls.all(); return cls._by_handle.get(handle)
+
+    @classmethod
+    def by_sku(cls, sku):
+        cls.all(); return cls._by_sku.get(sku, (None, None))
+
+    @classmethod
+    def query(cls, category=None, q=None, sort=None):
+        items = cls.all()
+        if category:
+            items = [p for p in items if p.get('category') == category]
+        if q:
+            terms = q.lower().split()
+            items = [p for p in items if all(t in (p.get('title', '') + ' ' + p.get('categoryName', '')).lower() for t in terms)]
+        price = lambda p: (p.get('SKUList') or [{}])[0].get('supplyPrice') or 0
+        if sort == 'price-asc':
+            items = sorted(items, key=price)
+        elif sort == 'price-desc':
+            items = sorted(items, key=price, reverse=True)
+        elif sort == 'name':
+            items = sorted(items, key=lambda p: p.get('title', '').lower())
+        return items
+
+    @classmethod
+    def related(cls, product, n=8):
+        same = [p for p in cls.all() if p.get('category') == product.get('category') and p is not product]
+        start = sum(map(ord, product.get('SPU') or '')) % max(len(same), 1)
+        return (same[start:] + same[:start])[:n]
+
+
 class ProductService:
     """Service for retrieving products with fallback mechanism"""
     
