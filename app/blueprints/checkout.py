@@ -1,442 +1,203 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, jsonify
 from datetime import datetime
 import stripe
-import time
-import requests
-from requests.exceptions import RequestException
 from ..models import CartItem, db
-from ..services.winit_api import WinitAPI
 from ..services.email_service import EmailService
 
 bp = Blueprint('checkout', __name__)
-email_service = EmailService()
+
+FREE_SHIPPING_MIN = 35.00
+STANDARD_SHIPPING = 5.99
+
+
+def cart_items():
+    if 'session_id' not in session:
+        return []
+    return CartItem.query.filter_by(session_id=session['session_id']).all()
+
+
+def totals(items):
+    subtotal = round(sum((i.price or 0) * (i.quantity or 0) for i in items), 2)
+    shipping = 0.0 if subtotal >= FREE_SHIPPING_MIN or not items else STANDARD_SHIPPING
+    return subtotal, shipping, round(subtotal + shipping, 2)
+
+
+def _get(obj, key, default=None):
+    """Read a field from a Stripe object or dict without raising."""
+    if obj is None:
+        return default
+    try:
+        val = obj.get(key) if hasattr(obj, 'get') else getattr(obj, key, None)
+    except Exception:
+        val = getattr(obj, key, None)
+    return default if val is None else val
+
+
+def order_number_for(session_id):
+    return 'LG-' + session_id[-10:].upper()
+
 
 @bp.route('/', methods=['GET'])
 def checkout_page():
-    # Ensure there is an active session with cart items
-    if 'session_id' not in session:
+    items = cart_items()
+    if not items:
         flash('Your cart is empty.', 'info')
         return redirect(url_for('main.index'))
-    cart_items = CartItem.query.filter_by(session_id=session['session_id']).all()
-    if not cart_items:
-        flash('Your cart is empty.', 'info')
-        return redirect(url_for('main.index'))
+    subtotal, shipping, total = totals(items)
+    return render_template('checkout/checkout.html', cart_items=items, subtotal=subtotal,
+                           shipping=shipping, total=total, free_shipping_min=FREE_SHIPPING_MIN)
 
-    # Fetch delivery methods via WinitAPI (using a default warehouse code e.g., 'UKGF')
-    delivery_methods = []
-    if current_app.config.get('WINIT_ENABLED'):
-        try:
-            delivery_response = WinitAPI.from_app(current_app).get_delivery_methods('UKGF')
-            delivery_methods = delivery_response.get('data', []) if isinstance(delivery_response, dict) else []
-        except Exception as e:
-            current_app.logger.error('Error fetching delivery methods: ' + str(e))
-
-    # Get publishable key for rendering
-    stripe_publishable_key = current_app.config.get('STRIPE_PUBLISHABLE_KEY', '')
-    if not stripe_publishable_key:
-        current_app.logger.warning("STRIPE_PUBLISHABLE_KEY is not set")
-
-    return render_template('checkout/checkout.html', 
-                           cart_items=cart_items, 
-                           delivery_methods=delivery_methods,
-                           stripe_key=stripe_publishable_key)
 
 @bp.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
-    if 'session_id' not in session:
-        return jsonify({'error': 'No cart session found'}), 400
+    wants_json = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    cart_items = CartItem.query.filter_by(session_id=session['session_id']).all()
-    if not cart_items:
-        return jsonify({'error': 'Cart is empty'}), 400
+    def fail(msg, code):
+        if wants_json:
+            return jsonify({'error': msg}), code
+        flash(msg, 'error')
+        return redirect(url_for('cart.view_cart'))
 
-    try:
-        # Load API key and validate it
-        stripe_secret_key = current_app.config.get('STRIPE_SECRET_KEY')
-        if not stripe_secret_key:
-            current_app.logger.error("STRIPE_SECRET_KEY is not set")
-            return jsonify({'error': 'Payment service is not configured'}), 500
+    items = cart_items()
+    if not items:
+        return fail('Your cart is empty.', 400)
 
-        # Set Stripe API key
-        stripe.api_key = stripe_secret_key
-        
-        # Log the API key length (don't log the actual key for security)
-        current_app.logger.info(f"Using Stripe API key (length: {len(stripe_secret_key)})")
+    secret = current_app.config.get('STRIPE_SECRET_KEY')
+    if not secret:
+        current_app.logger.error('STRIPE_SECRET_KEY is not set')
+        return fail('Payment service is temporarily unavailable. Please try again shortly.', 503)
+    stripe.api_key = secret
 
-        # Store shipping info in session if provided
-        shipping_data = request.form.to_dict() if request.form else {}
-        if shipping_data:
-            session['shipping_data'] = shipping_data
-
-        # Create line items for Stripe
-        line_items = []
-        for item in cart_items:
-            if not item.price or item.price <= 0:
-                raise ValueError(f'Invalid price for item {item.title}')
-                
-            line_items.append({
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': item.title,
-                        'images': [item.thumbnail] if item.thumbnail else [],
-                    },
-                    'unit_amount': int(item.price * 100),  # Stripe expects amounts in cents
-                },
-                'quantity': item.quantity,
-            })
-
-        # Build absolute URLs for success and cancel endpoints
-        # Fix URL construction to ensure valid URLs
-        server_name = current_app.config.get('SERVER_NAME')
-        scheme = current_app.config.get('PREFERRED_URL_SCHEME', 'https')
-        
-        # Log server configuration for debugging
-        current_app.logger.info(f"Server name config: {server_name}")
-        current_app.logger.info(f"URL scheme: {scheme}")
-        
-        if server_name:
-            # Use configured server name
-            base_url = f"{scheme}://{server_name}"
-            current_app.logger.info(f"Using configured base URL: {base_url}")
-        else:
-            # Fallback to request.host_url (but ensure it doesn't end with a slash)
-            base_url = request.host_url.rstrip('/')
-            current_app.logger.info(f"Using request host URL: {base_url}")
-        
-        # Generate absolute URLs with proper formatting for Stripe
-        success_path = url_for('checkout.success')
-        cancel_path = url_for('checkout.cancel')
-        
-        # Ensure paths start with slash
-        if not success_path.startswith('/'):
-            success_path = '/' + success_path
-        if not cancel_path.startswith('/'):
-            cancel_path = '/' + cancel_path
-            
-        success_url = f"{base_url}{success_path}?session_id={{CHECKOUT_SESSION_ID}}"
-        cancel_url = f"{base_url}{cancel_path}"
-        
-        # Log the generated URLs
-        current_app.logger.info(f"Success URL template: {success_url}")
-        current_app.logger.info(f"Cancel URL: {cancel_url}")
-        
-        # Prepare checkout session parameters
-        checkout_params = {
-            'payment_method_types': ['card'],
-            'line_items': line_items,
-            'mode': 'payment',
-            'success_url': success_url,
-            'cancel_url': cancel_url,
-            'shipping_address_collection': {
-                'allowed_countries': ['US'],
+    line_items = []
+    for item in items:
+        if not item.price or item.price <= 0:
+            return fail(f'{item.title} is currently unavailable.', 400)
+        line_items.append({
+            'price_data': {
+                'currency': 'usd',
+                'product_data': {'name': item.title[:250],
+                                 'images': [item.thumbnail] if item.thumbnail else []},
+                'unit_amount': int(round(item.price * 100)),
             },
-            'metadata': {
-                'cart_session_id': session['session_id']
-            }
+            'quantity': item.quantity,
+        })
+
+    _, shipping, _ = totals(items)
+    shipping_option = {
+        'shipping_rate_data': {
+            'type': 'fixed_amount',
+            'fixed_amount': {'amount': int(round(shipping * 100)), 'currency': 'usd'},
+            'display_name': 'Free standard shipping' if shipping == 0 else 'Standard shipping',
+            'delivery_estimate': {'minimum': {'unit': 'business_day', 'value': 5},
+                                  'maximum': {'unit': 'business_day', 'value': 10}},
         }
-        
-        # Log attempt to create session
-        current_app.logger.info(f"Attempting to create Stripe checkout session")
-        
-        # Create checkout session with retry mechanism
-        max_retries = 3
-        retry_delay = 1  # seconds
-        
-        for attempt in range(max_retries):
-            try:
-                checkout_session = stripe.checkout.Session.create(**checkout_params)
-                current_app.logger.info(f"Stripe checkout session created successfully: {checkout_session.id}")
-                return jsonify({'id': checkout_session.id})
-            except (stripe.error.APIConnectionError, requests.exceptions.RequestException) as e:
-                # Network-related errors - may be worth retrying
-                current_app.logger.warning(f"Network error on attempt {attempt+1}/{max_retries}: {str(e)}")
-                if attempt < max_retries - 1:
-                    time.sleep(retry_delay)
-                    continue
-                else:
-                    current_app.logger.error(f"Failed to connect to Stripe API after {max_retries} attempts")
-                    return jsonify({'error': 'Cannot connect to payment service. Please try again later.'}), 503
-            except stripe.error.StripeError as e:
-                # Other Stripe errors - log details and don't retry
-                current_app.logger.error(f"Stripe error: {str(e)}")
-                error_msg = 'Payment processing error. Please try again later.'
-                # Provide more specific messages for common errors
-                if isinstance(e, stripe.error.CardError):
-                    error_msg = 'Your card was declined. Please try another payment method.'
-                elif isinstance(e, stripe.error.InvalidRequestError):
-                    error_msg = 'Invalid request to payment processor. Please contact support.'
-                return jsonify({'error': error_msg}), 503
-                
-    except ValueError as e:
-        current_app.logger.error(f'Validation error in checkout: {str(e)}')
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        current_app.logger.error(f'Unexpected error in checkout: {str(e)}')
-        current_app.logger.exception("Detailed traceback:")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.'}), 500
+    }
+
+    base_url = request.host_url.rstrip('/')
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            mode='payment',
+            line_items=line_items,
+            success_url=f"{base_url}{url_for('checkout.success')}?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base_url}{url_for('checkout.cancel')}",
+            shipping_address_collection={'allowed_countries': ['US']},
+            shipping_options=[shipping_option],
+            phone_number_collection={'enabled': True},
+            metadata={'cart_session_id': session['session_id']},
+        )
+    except stripe.error.StripeError as e:
+        current_app.logger.error(f'Stripe error creating checkout session: {e}')
+        return fail('We could not start checkout. Please try again in a moment.', 502)
+
+    if wants_json:
+        return jsonify({'id': checkout_session.id, 'url': checkout_session.url})
+    return redirect(checkout_session.url, code=303)
+
 
 @bp.route('/success')
 def success():
-    stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
-    
-    try:
-        # Get the Stripe checkout session
-        session_id = request.args.get('session_id')
-        current_app.logger.info(f"Processing checkout with session_id: {session_id}")
-        if not session_id:
-            flash('Invalid checkout session.', 'error')
-            return redirect(url_for('main.index'))
-            
-        checkout_session = stripe.checkout.Session.retrieve(session_id)
-        current_app.logger.info(f"Retrieved checkout session with ID: {session_id}")
-        current_app.logger.debug(f"Checkout session type: {type(checkout_session)}")
-        
-        if not checkout_session:
-            flash('Could not verify payment. Please contact support.', 'error')
-            return redirect(url_for('main.index'))
-
-        # Get cart items using the cart session ID from metadata
-        current_app.logger.debug(f"Accessing metadata from checkout session")
-        
-        # Safely extract cart_session_id
-        cart_session_id = None
-        
-        # Debug the metadata
-        current_app.logger.debug(f"Checkout session metadata type: {type(getattr(checkout_session, 'metadata', None))}")
-        
-        if hasattr(checkout_session, 'metadata'):
-            metadata = checkout_session.metadata
-            current_app.logger.debug(f"Metadata direct access: {metadata}")
-            
-            if isinstance(metadata, dict):
-                cart_session_id = metadata.get('cart_session_id')
-                current_app.logger.debug(f"Retrieved cart_session_id from metadata dict: {cart_session_id}")
-            elif hasattr(metadata, 'cart_session_id'):
-                cart_session_id = metadata.cart_session_id
-                current_app.logger.debug(f"Retrieved cart_session_id from metadata object: {cart_session_id}")
-            elif isinstance(metadata, str):
-                # Handle case where metadata might be a string
-                current_app.logger.debug(f"Metadata is a string: {metadata}")
-                # Try to parse it as JSON if it looks like JSON
-                if metadata.startswith('{') and metadata.endswith('}'):
-                    try:
-                        import json
-                        metadata_dict = json.loads(metadata)
-                        cart_session_id = metadata_dict.get('cart_session_id')
-                        current_app.logger.debug(f"Parsed metadata string as JSON, got cart_session_id: {cart_session_id}")
-                    except json.JSONDecodeError:
-                        current_app.logger.error(f"Failed to parse metadata string as JSON: {metadata}")
-        else:
-            # Try dictionary access
-            current_app.logger.debug(f"No metadata attribute, trying dictionary access")
-            try:
-                metadata = checkout_session.get('metadata')
-                current_app.logger.debug(f"Metadata dict access: {metadata}")
-                if metadata and isinstance(metadata, dict):
-                    cart_session_id = metadata.get('cart_session_id')
-                    current_app.logger.debug(f"Retrieved cart_session_id from metadata dict: {cart_session_id}")
-            except (AttributeError, TypeError) as e:
-                current_app.logger.error(f"Error accessing metadata as dictionary: {e}")
-
-        # Final fallback - try to use the Flask session ID
-        if not cart_session_id and 'session_id' in session:
-            current_app.logger.debug("Using session['session_id'] as fallback")
-            cart_session_id = session['session_id']
-        
-        current_app.logger.info(f"Using cart session ID: {cart_session_id}")
-        
-        if not cart_session_id:
-            flash('Could not identify your cart. Please try again.', 'error')
-            return redirect(url_for('main.index'))
-        
-        cart_items = CartItem.query.filter_by(session_id=cart_session_id).all()
-        current_app.logger.info(f"Found {len(cart_items)} cart items")
-        
-        if not cart_items:
-            flash('No items found in cart.', 'error')
-            return redirect(url_for('main.index'))
-
-        # Calculate total
-        total = sum(item.price * item.quantity for item in cart_items)
-        current_app.logger.info(f"Order total: {total}")
-
-        # Initialize default values
-        shipping_name = ''
-        customer_email = ''
-        customer_phone = '0000000000'
-        address_line1 = ''
-        address_line2 = ''
-        city = ''
-        state = ''
-        postal_code = ''
-        country = ''
-
-        current_app.logger.debug("Processing shipping and customer details")
-        
-        # First try direct attribute access safely
-        try:
-            # Log each step to identify where the error might be
-            current_app.logger.debug("Attempting to access shipping_details as attribute")
-            if hasattr(checkout_session, 'shipping_details'):
-                shipping_details = checkout_session.shipping_details
-                current_app.logger.debug(f"shipping_details type: {type(shipping_details)}")
-                
-                if shipping_details:
-                    # Get shipping name
-                    if hasattr(shipping_details, 'name'):
-                        shipping_name = shipping_details.name
-                        current_app.logger.debug(f"Got shipping_name: {shipping_name}")
-                    
-                    # Get shipping address
-                    if hasattr(shipping_details, 'address'):
-                        shipping_address = shipping_details.address
-                        current_app.logger.debug(f"shipping_address type: {type(shipping_address)}")
-                        
-                        if hasattr(shipping_address, 'line1'):
-                            address_line1 = shipping_address.line1
-                        if hasattr(shipping_address, 'line2'):
-                            address_line2 = shipping_address.line2
-                        if hasattr(shipping_address, 'city'):
-                            city = shipping_address.city
-                        if hasattr(shipping_address, 'state'):
-                            state = shipping_address.state
-                        if hasattr(shipping_address, 'postal_code'):
-                            postal_code = shipping_address.postal_code
-                        if hasattr(shipping_address, 'country'):
-                            country = shipping_address.country
-            
-            current_app.logger.debug("Attempting to access customer_details as attribute")
-            if hasattr(checkout_session, 'customer_details'):
-                customer_details = checkout_session.customer_details
-                current_app.logger.debug(f"customer_details type: {type(customer_details)}")
-                
-                if customer_details:
-                    if hasattr(customer_details, 'email'):
-                        customer_email = customer_details.email
-                        current_app.logger.debug(f"Got customer_email: {customer_email}")
-                    if hasattr(customer_details, 'phone'):
-                        customer_phone = customer_details.phone
-                        current_app.logger.debug(f"Got customer_phone: {customer_phone}")
-        
-        except Exception as e:
-            current_app.logger.error(f"Error accessing attributes: {str(e)}")
-        
-        # Try dictionary access as fallback
-        if not shipping_name or not address_line1:
-            current_app.logger.debug("Trying dictionary access for shipping details")
-            try:
-                shipping_dict = checkout_session.get('shipping_details', {})
-                if shipping_dict:
-                    shipping_name = shipping_dict.get('name', shipping_name)
-                    address_dict = shipping_dict.get('address', {})
-                    address_line1 = address_dict.get('line1', address_line1)
-                    address_line2 = address_dict.get('line2', address_line2)
-                    city = address_dict.get('city', city)
-                    state = address_dict.get('state', state)
-                    postal_code = address_dict.get('postal_code', postal_code)
-                    country = address_dict.get('country', country)
-            except Exception as e:
-                current_app.logger.error(f"Error accessing shipping details as dict: {str(e)}")
-        
-        if not customer_email:
-            current_app.logger.debug("Trying dictionary access for customer details")
-            try:
-                customer_dict = checkout_session.get('customer_details', {})
-                if customer_dict:
-                    customer_email = customer_dict.get('email', '')
-                    customer_phone = customer_dict.get('phone', customer_phone)
-            except Exception as e:
-                current_app.logger.error(f"Error accessing customer details as dict: {str(e)}")
-
-        # Ensure we have required values with fallbacks
-        if not customer_email:
-            current_app.logger.warning("Missing customer email, using fallback")
-            customer_email = "customer@example.com"  # Fallback email
-            
-        if not shipping_name:
-            current_app.logger.warning("Missing shipping name, using fallback")
-            shipping_name = "Customer"  # Fallback name
-
-        current_app.logger.info(f"Shipping to: {shipping_name}, {address_line1}, {city}, {state}, {postal_code}, {country}")
-        current_app.logger.info(f"Customer contact: {customer_email}, {customer_phone}")
-
-        # Create a simulated order number instead of using Winit API
-        current_app.logger.debug("Creating simulated order number (Winit integration disabled)")
-        order_number = f"STRIPE_{session_id}"
-        current_app.logger.info(f"Order created with number: {order_number}")
-
-        # Prepare email data
-        current_app.logger.debug("Preparing email data")
-        email_data = {
-            'email': customer_email,
-            'items': cart_items,
-            'total': total,
-            'shipping_details': {
-                'name': shipping_name,
-                'address': {
-                    'line1': address_line1,
-                    'line2': address_line2 or '',
-                    'city': city,
-                    'state': state,
-                    'postal_code': postal_code,
-                    'country': country
-                }
-            },
-            'order_number': order_number
-        }
-        
-        # Send confirmation email
-        current_app.logger.debug("Sending confirmation email")
-        email_service = EmailService(current_app)
-        email_sent = email_service.send_order_confirmation(email_data)
-        current_app.logger.info(f"Email sent: {email_sent}")
-
-        # Clear cart
-        current_app.logger.debug("Clearing cart items")
-        for item in cart_items:
-            db.session.delete(item)
-        db.session.commit()
-        current_app.logger.info("Cart cleared successfully")
-
-        # Render confirmation page
-        current_app.logger.debug("Rendering confirmation page")
-        return render_template('checkout/confirmation.html',
-                            items=cart_items,
-                            total=total,
-                            shipping_details=email_data['shipping_details'],
-                            order_number=order_number,
-                            order_date=datetime.now().strftime('%B %d, %Y'))
-
-    except Exception as e:
-        current_app.logger.error(f"Error processing order completion: {str(e)}")
-        current_app.logger.exception("Detailed traceback:")
-        flash('There was an error processing your order. Our team has been notified.', 'error')
+    session_id = request.args.get('session_id', '')
+    if not session_id.startswith('cs_'):
         return redirect(url_for('main.index'))
+    stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
+
+    try:
+        cs = stripe.checkout.Session.retrieve(session_id)
+        if _get(cs, 'payment_status') not in ('paid', 'no_payment_required'):
+            flash('Your payment was not completed. Your cart has been saved.', 'error')
+            return redirect(url_for('cart.view_cart'))
+        lines = stripe.checkout.Session.list_line_items(session_id, limit=100)
+    except stripe.error.StripeError as e:
+        current_app.logger.error(f'Could not verify checkout session {session_id}: {e}')
+        flash('We could not confirm your payment yet. If you were charged, contact support and we will help right away.', 'error')
+        return redirect(url_for('cart.view_cart'))
+
+    # Order lines come from Stripe so the confirmation stays accurate on reload
+    cart_session_id = _get(_get(cs, 'metadata', {}), 'cart_session_id')
+    cart = CartItem.query.filter_by(session_id=cart_session_id).all() if cart_session_id else []
+    thumbs = {c.title[:250]: c.thumbnail for c in cart}
+    items = []
+    for li in _get(lines, 'data', []):
+        qty = _get(li, 'quantity', 1) or 1
+        items.append({
+            'title': _get(li, 'description', 'Item'),
+            'quantity': qty,
+            'price': _get(li, 'amount_subtotal', 0) / 100 / qty,
+            'thumbnail': thumbs.get(_get(li, 'description')),
+        })
+
+    total = _get(cs, 'amount_total', 0) / 100
+    shipping_cost = _get(_get(cs, 'total_details', {}), 'amount_shipping', 0) / 100
+    customer = _get(cs, 'customer_details', {})
+    ship = _get(cs, 'shipping_details') or _get(_get(cs, 'collected_information', {}), 'shipping_details') or {}
+    addr = _get(ship, 'address') or _get(customer, 'address', {})
+    shipping_details = {
+        'name': _get(ship, 'name') or _get(customer, 'name', ''),
+        'address': {k: _get(addr, k, '') for k in ('line1', 'line2', 'city', 'state', 'postal_code', 'country')},
+    }
+    order_number = order_number_for(session_id)
+
+    # First visit after payment: send the confirmation once and clear the cart
+    if cart:
+        email = _get(customer, 'email')
+        if email:
+            try:
+                EmailService(current_app).send_order_confirmation({
+                    'email': email, 'items': items, 'total': total,
+                    'shipping_details': shipping_details, 'order_number': order_number,
+                })
+            except Exception as e:
+                current_app.logger.error(f'Order email failed for {order_number}: {e}')
+        for c in cart:
+            db.session.delete(c)
+        db.session.commit()
+
+    created = _get(cs, 'created')
+    return render_template('checkout/confirmation.html', items=items, total=total,
+                           shipping_cost=shipping_cost, shipping_details=shipping_details,
+                           email=_get(customer, 'email', ''), order_number=order_number,
+                           order_date=(datetime.fromtimestamp(created) if created else datetime.now()).strftime('%B %d, %Y'))
+
 
 @bp.route('/cancel')
 def cancel():
-    flash('Payment was cancelled.', 'info')
+    flash('Checkout was cancelled. Your cart is saved.', 'info')
     return redirect(url_for('cart.view_cart'))
+
 
 @bp.route('/webhook', methods=['POST'])
 def webhook():
-    stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
-    webhook_secret = current_app.config['STRIPE_WEBHOOK_SECRET']
-    
+    stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
     try:
         event = stripe.Webhook.construct_event(
             payload=request.data,
             sig_header=request.headers.get('Stripe-Signature'),
-            secret=webhook_secret
+            secret=current_app.config.get('STRIPE_WEBHOOK_SECRET'),
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-    # Handle specific events
     if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        # You could add additional handling here, like sending confirmation emails
-        current_app.logger.info(f'Payment successful for session {session.id}')
-    
-    return jsonify({'status': 'success'}) 
+        obj = event['data']['object']
+        current_app.logger.info(f"Payment completed for {order_number_for(obj['id'])} ({obj['id']})")
+    return jsonify({'status': 'success'})

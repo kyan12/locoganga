@@ -1,142 +1,77 @@
-<!-- templates/cart/cart.html -->
 {% extends "base.html" %}
-
-{% block extra_head %}
-<script src="https://js.stripe.com/v3/"></script>
-{% endblock %}
+{% block title %}Your Cart{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold">Shopping Cart</h1>
-        <a href="/" class="text-blue-500 hover:text-blue-600">Continue Shopping</a>
+<div class="max-w-6xl mx-auto px-4 py-8 sm:py-12">
+    <div class="flex items-end justify-between gap-4 mb-6">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-brand">Your cart</h1>
+        <a href="{{ url_for('main.index') }}" class="text-sm font-medium text-slate-600 hover:text-brand">&larr; Continue shopping</a>
     </div>
 
     {% if cart_items %}
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <table class="w-full">
-                <thead>
-                    <tr class="border-b">
-                        <th class="text-left py-4">Product</th>
-                        <th class="text-center py-4">Quantity</th>
-                        <th class="text-right py-4">Price</th>
-                        <th class="text-right py-4">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in cart_items %}
-                    <tr class="border-b">
-                        <td class="py-4">
-                            <div class="flex items-center">
-                                {% if item.thumbnail %}
-                                <img src="{{ item.thumbnail }}" 
-                                     alt="{{ item.title }}" 
-                                     class="w-16 h-16 object-cover rounded"
-                                     onerror="this.src='https://via.placeholder.com/64'">
-                                {% endif %}
-                                <div class="ml-4">
-                                    <h3 class="font-semibold">{{ item.title }}</h3>
-                                    <p class="text-gray-600 text-sm">SKU: {{ item.sku }}</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="py-4">
-                            <div class="flex justify-center items-center">
-                                <button class="text-gray-500 hover:text-blue-500 px-2"
-                                        onclick="updateQuantity('{{ item.sku }}', -1)">-</button>
-                                <span class="mx-2">{{ item.quantity }}</span>
-                                <button class="text-gray-500 hover:text-blue-500 px-2"
-                                        onclick="updateQuantity('{{ item.sku }}', 1)">+</button>
-                            </div>
-                        </td>
-                        <td class="text-right py-4">
-                            ${{ "%.2f"|format(item.price) }}
-                        </td>
-                        <td class="text-right py-4">
-                            ${{ "%.2f"|format(item.price * item.quantity) }}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="3" class="text-right py-4 font-semibold">Subtotal:</td>
-                        <td class="text-right py-4 font-semibold">${{ "%.2f"|format(total) }}</td>
-                    </tr>
-                </tfoot>
-            </table>
+    {% set remaining = free_shipping_min - subtotal %}
+    <div class="grid lg:grid-cols-3 gap-8">
+        <ul class="lg:col-span-2 divide-y divide-slate-200 border-y border-slate-200">
+            {% for item in cart_items %}
+            <li class="py-5 flex gap-4">
+                <div class="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 rounded-lg bg-slate-100 overflow-hidden">
+                    {% if item.thumbnail %}<img src="{{ item.thumbnail }}" alt="" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">{% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between gap-3">
+                        <p class="font-semibold text-slate-900 leading-snug line-clamp-2">{{ item.title }}</p>
+                        <p class="font-semibold text-slate-900 whitespace-nowrap">${{ "%.2f"|format(item.price * item.quantity) }}</p>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-1">${{ "%.2f"|format(item.price) }} each</p>
+                    <div class="mt-3 flex items-center gap-4">
+                        <div class="inline-flex items-center border border-slate-300 rounded-lg">
+                            <button type="button" class="w-9 h-9 text-lg text-slate-600 hover:text-brand disabled:opacity-40" aria-label="Decrease quantity" data-sku="{{ item.sku }}" data-change="-1">&minus;</button>
+                            <span class="w-8 text-center text-sm font-semibold">{{ item.quantity }}</span>
+                            <button type="button" class="w-9 h-9 text-lg text-slate-600 hover:text-brand disabled:opacity-40" aria-label="Increase quantity" data-sku="{{ item.sku }}" data-change="1" {% if item.quantity >= 20 %}disabled{% endif %}>+</button>
+                        </div>
+                        <button type="button" class="text-sm text-slate-500 underline hover:text-red-600" data-sku="{{ item.sku }}" data-change="-{{ item.quantity }}">Remove</button>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
 
-            <div class="text-right mt-4">
-                <button id="checkout-button" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
-                    Proceed to Checkout
-                </button>
-            </div>
-        </div>
+        <aside class="bg-slate-50 border border-slate-200 rounded-xl p-6 h-fit lg:sticky lg:top-24">
+            <h2 class="text-lg font-bold text-slate-900 mb-4">Order summary</h2>
+            {% if remaining > 0 %}
+            <p class="text-sm text-slate-600 mb-4">Add <strong>${{ "%.2f"|format(remaining) }}</strong> more for free shipping.</p>
+            {% else %}
+            <p class="text-sm text-emerald-700 font-medium mb-4">Your order ships free.</p>
+            {% endif %}
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between"><dt class="text-slate-600">Subtotal</dt><dd class="font-medium">${{ "%.2f"|format(subtotal) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-600">Shipping</dt><dd class="font-medium">{% if shipping == 0 %}Free{% else %}${{ "%.2f"|format(shipping) }}{% endif %}</dd></div>
+                <div class="flex justify-between border-t border-slate-200 pt-3 mt-3 text-base"><dt class="font-bold">Total</dt><dd class="font-bold">${{ "%.2f"|format(total) }}</dd></div>
+            </dl>
+            <form method="post" action="{{ url_for('checkout.create_checkout_session') }}" class="mt-6">
+                <button type="submit" class="w-full bg-brand text-white font-semibold py-3 rounded-lg hover:bg-brand-dark transition">Checkout securely</button>
+            </form>
+            <p class="mt-3 text-xs text-slate-500 text-center">Secure payment processed by Stripe.</p>
+        </aside>
+    </div>
     {% else %}
-        <div class="bg-white rounded-lg shadow-md p-6 text-center">
-            <p class="text-gray-600 mb-4">Your cart is empty</p>
-            <a href="/" class="text-blue-500 hover:text-blue-600">Start Shopping</a>
-        </div>
+    <div class="text-center py-20 border border-dashed border-slate-300 rounded-xl">
+        <p class="text-lg font-semibold text-slate-900">Your cart is empty</p>
+        <p class="text-slate-500 mt-1">Find something you'll use every day.</p>
+        <a href="{{ url_for('main.index') }}" class="inline-block mt-6 bg-brand text-white font-semibold px-6 py-3 rounded-lg hover:bg-brand-dark transition">Start shopping</a>
+    </div>
     {% endif %}
 </div>
 
 <script>
-function updateQuantity(sku, change) {
-    fetch('/cart/update', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            sku: sku,
-            change: change
-        })
-    }).then(() => window.location.reload());
-}
-
-// Stripe checkout
-const stripe = Stripe('{{ config.STRIPE_PUBLISHABLE_KEY }}');
-const checkoutButton = document.getElementById('checkout-button');
-
-checkoutButton.addEventListener('click', function() {
-    // Disable the button to prevent multiple clicks
-    checkoutButton.disabled = true;
-    checkoutButton.textContent = 'Processing...';
-
-    // Create a new Checkout Session
-    fetch('/checkout/create-checkout-session', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({}) // Send empty object to maintain JSON format
-    })
-    .then(function(response) {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(function(session) {
-        if (session.error) {
-            throw new Error(session.error);
-        }
-        return stripe.redirectToCheckout({ sessionId: session.id });
-    })
-    .then(function(result) {
-        if (result && result.error) {
-            throw new Error(result.error.message);
-        }
-    })
-    .catch(function(error) {
-        console.error('Error:', error);
-        alert('Payment processing error: ' + error.message);
-    })
-    .finally(function() {
-        // Re-enable the button
-        checkoutButton.disabled = false;
-        checkoutButton.textContent = 'Proceed to Checkout';
+document.querySelectorAll('button[data-sku]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('button[data-sku]').forEach(function (b) { b.disabled = true; });
+        fetch('{{ url_for("cart.update_cart") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({sku: btn.dataset.sku, change: parseInt(btn.dataset.change, 10)})
+        }).finally(function () { window.location.reload(); });
     });
 });
 </script>

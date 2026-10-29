@@ -51,22 +51,20 @@ def add_to_cart():
 
 @bp.route('/', methods=['GET'])
 def view_cart():
-    if 'session_id' not in session:
-        return render_template('cart/cart.html', cart_items=[], total=0)
-    
-    cart_items = CartItem.query.filter_by(session_id=session['session_id']).all()
-    total = sum(item.price * item.quantity for item in cart_items) if cart_items else 0
-    
-    return render_template('cart/cart.html', cart_items=cart_items, total=total)
+    from .checkout import cart_items, totals, FREE_SHIPPING_MIN
+    items = cart_items()
+    subtotal, shipping, total = totals(items)
+    return render_template('cart/cart.html', cart_items=items, subtotal=subtotal, shipping=shipping,
+                           total=total, free_shipping_min=FREE_SHIPPING_MIN)
 
 @bp.route('/update', methods=['POST'])
 def update_cart():
     if 'session_id' not in session:
         return jsonify({'error': 'No session found'}), 400
     
-    data = request.json
+    data = request.get_json(silent=True) or {}
     sku = data.get('sku')
-    change = data.get('change', 0)
+    change = int(data.get('change') or 0)
     
     if not sku:
         return jsonify({'error': 'SKU is required'}), 400
@@ -77,7 +75,7 @@ def update_cart():
     ).first()
     
     if cart_item:
-        cart_item.quantity = max(0, cart_item.quantity + change)
+        cart_item.quantity = max(0, min(cart_item.quantity + change, 20))
         if cart_item.quantity == 0:
             db.session.delete(cart_item)
         db.session.commit()

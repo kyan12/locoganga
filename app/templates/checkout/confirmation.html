@@ -1,75 +1,49 @@
 {% extends "base.html" %}
-{% block title %}Order Confirmation{% endblock %}
+{% block title %}Order {{ order_number }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-2xl mx-auto">
-        <div class="bg-green-100 border-l-4 border-green-500 p-4 mb-6">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-green-700">
-                        Order successfully placed! A confirmation email has been sent to your email address.
-                    </p>
-                </div>
-            </div>
+<div class="max-w-2xl mx-auto px-4 py-10 sm:py-14">
+    <div class="text-center mb-8">
+        <div class="mx-auto w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+            <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
         </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-brand">Thank you for your order</h1>
+        <p class="text-slate-600 mt-2">Order <strong>{{ order_number }}</strong> &middot; {{ order_date }}</p>
+        {% if email %}<p class="text-sm text-slate-500 mt-1">A receipt is on its way to {{ email }}.</p>{% endif %}
+    </div>
 
-        <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h1 class="text-2xl font-bold text-gray-800">Order Confirmation</h1>
-                <p class="text-gray-600">Order Number: {{ order_number }}</p>
-                <p class="text-gray-600">Date: {{ order_date }}</p>
-            </div>
-
-            <div class="px-6 py-4">
-                <h2 class="text-xl font-semibold mb-4">Order Details</h2>
-                {% for item in items %}
-                <div class="flex justify-between items-center py-3 border-b border-gray-200">
-                    <div class="flex items-center">
-                        {% if item.thumbnail %}
-                        <img src="{{ item.thumbnail }}" alt="{{ item.title }}" class="w-16 h-16 object-cover rounded">
-                        {% endif %}
-                        <div class="ml-4">
-                            <h3 class="font-medium">{{ item.title }}</h3>
-                            <p class="text-gray-600">Quantity: {{ item.quantity }}</p>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <p class="font-medium">${{ "%.2f"|format(item.price * item.quantity) }}</p>
-                        <p class="text-sm text-gray-600">${{ "%.2f"|format(item.price) }} each</p>
-                    </div>
+    <div class="border border-slate-200 rounded-xl overflow-hidden">
+        <ul class="divide-y divide-slate-200">
+            {% for item in items %}
+            <li class="p-4 flex items-center gap-4">
+                <div class="w-14 h-14 flex-shrink-0 rounded-lg bg-slate-100 overflow-hidden">
+                    {% if item.thumbnail %}<img src="{{ item.thumbnail }}" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'">{% endif %}
                 </div>
-                {% endfor %}
+                <p class="flex-1 min-w-0 text-sm font-medium text-slate-900 line-clamp-2">{{ item.title }} <span class="text-slate-500">&times; {{ item.quantity }}</span></p>
+                <p class="text-sm font-semibold whitespace-nowrap">${{ "%.2f"|format(item.price * item.quantity) }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+        <dl class="bg-slate-50 border-t border-slate-200 p-4 space-y-2 text-sm">
+            <div class="flex justify-between"><dt class="text-slate-600">Shipping</dt><dd>{% if shipping_cost == 0 %}Free{% else %}${{ "%.2f"|format(shipping_cost) }}{% endif %}</dd></div>
+            <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold"><dt>Total paid</dt><dd>${{ "%.2f"|format(total) }}</dd></div>
+        </dl>
+    </div>
 
-                <div class="mt-6 text-right">
-                    <p class="text-lg font-bold">Total: ${{ "%.2f"|format(total) }}</p>
-                </div>
-            </div>
+    {% if shipping_details.address.line1 %}
+    <div class="mt-6 border border-slate-200 rounded-xl p-4 text-sm">
+        <h2 class="font-bold text-slate-900 mb-2">Shipping to</h2>
+        <p class="text-slate-700 leading-relaxed">
+            {{ shipping_details.name }}<br>
+            {{ shipping_details.address.line1 }}{% if shipping_details.address.line2 %}, {{ shipping_details.address.line2 }}{% endif %}<br>
+            {{ shipping_details.address.city }}, {{ shipping_details.address.state }} {{ shipping_details.address.postal_code }}
+        </p>
+        <p class="text-slate-500 mt-3">Orders are processed within 1&ndash;3 business days. You'll get tracking by email once it's on the way.</p>
+    </div>
+    {% endif %}
 
-            <div class="px-6 py-4 bg-gray-50">
-                <h2 class="text-xl font-semibold mb-4">Shipping Details</h2>
-                <div class="text-gray-700">
-                    <p>{{ shipping_details.name }}</p>
-                    <p>{{ shipping_details.address.line1 }}</p>
-                    {% if shipping_details.address.line2 %}
-                    <p>{{ shipping_details.address.line2 }}</p>
-                    {% endif %}
-                    <p>{{ shipping_details.address.city }}, {{ shipping_details.address.state }} {{ shipping_details.address.postal_code }}</p>
-                    <p>{{ shipping_details.address.country }}</p>
-                </div>
-            </div>
-
-            <div class="px-6 py-4 border-t border-gray-200">
-                <a href="{{ url_for('main.index') }}" class="inline-block bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 transition">
-                    Continue Shopping
-                </a>
-            </div>
-        </div>
+    <div class="mt-8 text-center">
+        <a href="{{ url_for('main.index') }}" class="inline-block bg-brand text-white font-semibold px-6 py-3 rounded-lg hover:bg-brand-dark transition">Continue shopping</a>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}
